@@ -1,0 +1,29 @@
+[
+    { 
+        "type": "heading", 
+        "defaultValue": "OpenWeatherGraph" 
+    },
+    {
+        "type":"section",
+        "items":[
+            {
+            "type": "text",
+            "defaultValue": "Before we enjoy this watchface, let's first give a nod to Tomas Kafka, the author of the original WeatherGraph. His creativity and talents paved the way for this open source version to exist. Cheers TK!"
+            },
+            {
+            "type": "heading",
+            "defaultValue": "Configuration"
+            },
+            {
+                "type":"input",
+                "messageKey":"DarkSkyKey",
+                "label":"DarkSky API Key",
+                "description":"enter a DarkSky developer API key"
+            }
+        ]
+    },
+    {
+        "type":"submit",
+        "defaultValue":"save"
+    }
+]

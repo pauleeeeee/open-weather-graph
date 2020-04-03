@@ -1,0 +1,47 @@
+{
+  "name": "open-weather-graph",
+  "author": "swansswansswansswanssosoft",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {
+    "message-queue-pebble": "^1.0.0",
+    "pebble-battery-bar": "^1.0.10",
+    "pebble-bluetooth-icon": "^1.0.8",
+    "pebble-clay": "^1.0.4",
+    "pebble-moon-layer": "^1.2.1"
+  },
+  "pebble": {
+    "displayName": "OpenWeatherGraph",
+    "capabilities": [
+      "geolocation",
+      "configurable"
+    ],
+    "uuid": "24c4e9b1-dc28-48ad-be60-67edcf780d55",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": {
+      "DarkSkyKey": 1,
+      "GraphTemperature": 100,
+      "GraphCloudCover": 101,
+      "GraphPrecipType": 102,
+      "GraphPrecipProb": 103,
+      "GraphHumidity": 104,
+      "GraphPressure": 105
+    },
+    "resources": {
+      "media": []
+    }
+  }
+}
