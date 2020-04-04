@@ -38,7 +38,9 @@
       "GraphPrecipType": 102,
       "GraphPrecipProb": 103,
       "GraphHumidity": 104,
-      "GraphPressure": 105
+      "GraphPressure": 105,
+      "DailyHighs": 110,
+      "DailyLows": 111
     },
     "resources": {
       "media": []
