@@ -71,14 +71,14 @@ function getWeather(){
                 //
                 // and response.daily.data[] 
                 
-                let dailyHighBuffer = new ArrayBuffer(6);
-                let dailyHighView = new Uint8Array(dailyHighBuffer);
+                var dailyHighBuffer = new ArrayBuffer(6);
+                var dailyHighView = new Uint8Array(dailyHighBuffer);
 
-                let dailyLowBuffer = new ArrayBuffer(6);
-                let dailyLowView = new Uint8Array(dailyLowBuffer);
+                var dailyLowBuffer = new ArrayBuffer(6);
+                var dailyLowView = new Uint8Array(dailyLowBuffer);
 
                 //get daily higs and lows for the next 6 days
-                for (let i = 0; i < 6; i++) {
+                for (i = 0; i < 6; i++) {
                     dailyHighView[i] = Math.round(response.daily.data[i].temperatureHigh);
                     dailyLowView[i] = Math.round(response.daily.data[i].temperatureLow);
                 }
@@ -89,46 +89,66 @@ function getWeather(){
                 console.log(JSON.stringify(dailyLowView));
 
                 //duplicate the array for ordering
-                let orderedHighs = [...dailyHighView];
-                orderedHighs.sort((a, b) => (a < b) ? 1 : -1);
+                // var orderedHighs = [...dailyHighView];
+                var orderedHighs = [];
+                for (i = 0; i < dailyHighView.length; i++) {
+                    orderedHighs[i] = dailyHighView[i];
+                }
+                orderedHighs.sort(function (a, b) {
+                    return (a < b) ? 1 : -1;
+                });
                 console.log(JSON.stringify("orderedHighs"));
                 console.log(JSON.stringify(orderedHighs));
                 
-                let orderedLows = [...dailyLowView];
-                orderedLows.sort((a, b) => (a > b) ? 1 : -1);
+                // var orderedLows = [...dailyLowView];
+                var orderedLows = [];
+                for (i = 0; i < dailyLowView.length; i++) {
+                    orderedLows[i] = dailyLowView[i];
+                }
+
+                orderedLows.sort(function (a, b) {
+                    return (a > b) ? 1 : -1;
+                });
                 console.log(JSON.stringify("orderedLows"));
                 console.log(JSON.stringify(orderedLows));
 
                 //pull highs and lows
                 var weeklyHigh = orderedHighs[0];
                 var weeklyLow = orderedLows[0];
+
                 //compute range to use as scaling ratio
                 var weeklyTemperatureRange = weeklyHigh - weeklyLow;
-                var temperatureScale = 55/weeklyTemperatureRange;
+                var temperatureScale = 1;
+                if (weeklyTemperatureRange > 55) {
+                    temperatureScale = 55/weeklyTemperatureRange;
+                } 
+                // var temperatureScale = 55/weeklyTemperatureRange;
+
+
                 console.log("weeklyTemperatureRange");
                 console.log(weeklyTemperatureRange);
 
                 //create 144 length arrays for each piece of information
-                let temperatureBuffer = new ArrayBuffer(144);
-                let temperatureView = new Uint8Array(temperatureBuffer);
+                var temperatureBuffer = new ArrayBuffer(144);
+                var temperatureView = new Uint8Array(temperatureBuffer);
 
-                let cloudCoverBuffer = new ArrayBuffer(144);
-                let cloudCoverView = new Uint8Array(cloudCoverBuffer);
+                var cloudCoverBuffer = new ArrayBuffer(144);
+                var cloudCoverView = new Uint8Array(cloudCoverBuffer);
 
-                let precipTypeBuffer = new ArrayBuffer(144);
-                let precipTypeView = new Uint8Array(precipTypeBuffer);
+                var precipTypeBuffer = new ArrayBuffer(144);
+                var precipTypeView = new Uint8Array(precipTypeBuffer);
                 
-                let precipProbabilityBuffer = new ArrayBuffer(144);
-                let precipProbabilityView = new Uint8Array(precipProbabilityBuffer);
+                var precipProbabilityBuffer = new ArrayBuffer(144);
+                var precipProbabilityView = new Uint8Array(precipProbabilityBuffer);
 
-                let humidityBuffer = new ArrayBuffer(144);
-                let humidityView = new Uint8Array(humidityBuffer);
+                var humidityBuffer = new ArrayBuffer(144);
+                var humidityView = new Uint8Array(humidityBuffer);
                 
-                let pressureBuffer = new ArrayBuffer(144);
-                let pressureView = new Uint8Array(pressureBuffer);
+                var pressureBuffer = new ArrayBuffer(144);
+                var pressureView = new Uint8Array(pressureBuffer);
                 
                 // fill arrays
-                for(let i = 0; i < 144; i++){
+                for(i = 0; i < 144; i++){
                     temperatureView[i] = Math.round((weeklyHigh - Math.round(response.hourly.data[i].temperature)) * temperatureScale);
                     cloudCoverView[i] = Math.round(response.hourly.data[i].cloudCover*10);
                     precipTypeView[i] = returnPrecipType(response.hourly.data[i].precipType);
@@ -150,26 +170,28 @@ function getWeather(){
                 }
 
                 
-                // console.log("temperatureView");
-                // console.log(JSON.stringify(temperatureView));
-                // console.log("cloudCoverView");
-                // console.log(JSON.stringify(cloudCoverView));
-                // console.log("precipTypeView");
-                // console.log(JSON.stringify(precipTypeView));
-                // console.log("precipProbabilityView");
-                // console.log(JSON.stringify(precipProbabilityView));
-                // console.log("humidityView");
-                // console.log(JSON.stringify(humidityView));
-                // console.log("pressureView");
-                // console.log(JSON.stringify(pressureView));
+                console.log("temperatureView");
+                console.log(JSON.stringify(temperatureView));
+                console.log("cloudCoverView");
+                console.log(JSON.stringify(cloudCoverView));
+                console.log("precipTypeView");
+                console.log(JSON.stringify(precipTypeView));
+                console.log("precipProbabilityView");
+                console.log(JSON.stringify(precipProbabilityView));
+                console.log("humidityView");
+                console.log(JSON.stringify(humidityView));
+                console.log("pressureView");
+                console.log(JSON.stringify(pressureView));
 
                 MessageQueue.sendAppMessage({
-                    GraphTemperature: Array.from(temperatureView),
-                    GraphCloudCover: Array.from(cloudCoverView),
-                    GraphPrecipType: Array.from(precipTypeView),
-                    GraphPrecipProb: Array.from(precipProbabilityView),
-                    GraphHumidity: Array.from(humidityView),
-                    GraphPressure: Array.from(pressureView)
+                    "GraphTemperature": Array.from(temperatureView),
+                    "GraphCloudCover": Array.from(cloudCoverView),
+                    "GraphPrecipType": Array.from(precipTypeView),
+                    "GraphPrecipProb": Array.from(precipProbabilityView),
+                    "GraphHumidity": Array.from(humidityView),
+                    "GraphPressure": Array.from(pressureView),
+                    "DailyHighs": Array.from(dailyHighView),
+                    "DailyLows": Array.from(dailyLowView)
                 });
 
             }
@@ -177,3 +199,84 @@ function getWeather(){
     }
     req.send();
 }
+
+
+// polyfill for ancient iOS JS environment
+// Production steps of ECMA-262, Edition 6, 22.1.2.1
+if (!Array.from) {
+    Array.from = (function () {
+      var toStr = Object.prototype.toString;
+      var isCallable = function (fn) {
+        return typeof fn === 'function' || toStr.call(fn) === '[object Function]';
+      };
+      var toInteger = function (value) {
+        var number = Number(value);
+        if (isNaN(number)) { return 0; }
+        if (number === 0 || !isFinite(number)) { return number; }
+        return (number > 0 ? 1 : -1) * Math.floor(Math.abs(number));
+      };
+      var maxSafeInteger = Math.pow(2, 53) - 1;
+      var toLength = function (value) {
+        var len = toInteger(value);
+        return Math.min(Math.max(len, 0), maxSafeInteger);
+      };
+  
+      // The length property of the from method is 1.
+      return function from(arrayLike/*, mapFn, thisArg */) {
+        // 1. Let C be the this value.
+        var C = this;
+  
+        // 2. Let items be ToObject(arrayLike).
+        var items = Object(arrayLike);
+  
+        // 3. ReturnIfAbrupt(items).
+        if (arrayLike == null) {
+          throw new TypeError('Array.from requires an array-like object - not null or undefined');
+        }
+  
+        // 4. If mapfn is undefined, then let mapping be false.
+        var mapFn = arguments.length > 1 ? arguments[1] : void undefined;
+        var T;
+        if (typeof mapFn !== 'undefined') {
+          // 5. else
+          // 5. a If IsCallable(mapfn) is false, throw a TypeError exception.
+          if (!isCallable(mapFn)) {
+            throw new TypeError('Array.from: when provided, the second argument must be a function');
+          }
+  
+          // 5. b. If thisArg was supplied, let T be thisArg; else let T be undefined.
+          if (arguments.length > 2) {
+            T = arguments[2];
+          }
+        }
+  
+        // 10. Let lenValue be Get(items, "length").
+        // 11. Let len be ToLength(lenValue).
+        var len = toLength(items.length);
+  
+        // 13. If IsConstructor(C) is true, then
+        // 13. a. Let A be the result of calling the [[Construct]] internal method 
+        // of C with an argument list containing the single item len.
+        // 14. a. Else, Let A be ArrayCreate(len).
+        var A = isCallable(C) ? Object(new C(len)) : new Array(len);
+  
+        // 16. Let k be 0.
+        var k = 0;
+        // 17. Repeat, while k < len… (also steps a - h)
+        var kValue;
+        while (k < len) {
+          kValue = items[k];
+          if (mapFn) {
+            A[k] = typeof T === 'undefined' ? mapFn(kValue, k) : mapFn.call(T, kValue, k);
+          } else {
+            A[k] = kValue;
+          }
+          k += 1;
+        }
+        // 18. Let putStatus be Put(A, "length", len, true).
+        A.length = len;
+        // 20. Return A.
+        return A;
+      };
+    }());
+  }
