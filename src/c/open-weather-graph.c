@@ -22,6 +22,9 @@ static uint8_t s_graph_precip_probability[144];
 static uint8_t s_graph_humidity[144];
 static uint8_t s_graph_pressure[144];
 
+static uint8_t s_daily_highs[6];
+static uint8_t s_daily_lows[6];
+
 static void update_time() {
   // Get a tm structure
   time_t temp = time(NULL);
@@ -101,6 +104,16 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
       layer_mark_dirty(s_weather_window_layer);
   }
 
+  Tuple *daily_highs_tuple = dict_find (iter, DailyHighs);
+  if (daily_highs_tuple) {
+      memcpy(s_daily_highs, daily_highs_tuple->value->data, 6);
+  }
+
+  Tuple *daily_lows_tuple = dict_find (iter, DailyLows);
+  if (daily_lows_tuple) {
+      memcpy(s_daily_lows, daily_lows_tuple->value->data, 6);
+  }
+
 }
 
 static void in_dropped_handler(AppMessageResult reason, void *context){
@@ -114,10 +127,10 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
 
   // draw_gradient_rect(ctx, GRect(bounds.origin.x, graphOffset, bounds.size.w, 55), GColorBlack, GColorWhite, TOP_TO_BOTTOM);
   draw_dithered_rect(ctx, GRect(bounds.origin.x, 30, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_90_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 35, bounds.size.w, 10), GColorBlack, GColorWhite, DITHER_70_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 45, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_60_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 58, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_30_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 71, bounds.size.w, 9), GColorBlack, GColorWhite, DITHER_20_PERCENT);
+  draw_dithered_rect(ctx, GRect(bounds.origin.x, 35, bounds.size.w, 10), GColorBlack, GColorWhite, DITHER_80_PERCENT);
+  draw_dithered_rect(ctx, GRect(bounds.origin.x, 45, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_70_PERCENT);
+  draw_dithered_rect(ctx, GRect(bounds.origin.x, 58, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_40_PERCENT);
+  draw_dithered_rect(ctx, GRect(bounds.origin.x, 71, bounds.size.w, 9), GColorBlack, GColorWhite, DITHER_25_PERCENT);
   draw_dithered_rect(ctx, GRect(bounds.origin.x, 80, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_10_PERCENT);
   // draw_dithered_rect(ctx, GRect(bounds.origin.x, 80, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_10_PERCENT);
   // draw_random_gradient_rect(ctx, GRect(bounds.origin.x, bounds.origin.y, bounds.size.w, bounds.size.h), GColorWhite, GColorBlack, TOP_TO_BOTTOM);
@@ -163,14 +176,17 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
       } 
       //temp line black padding from precip type
       graphics_context_set_stroke_color(ctx, GColorBlack);
-      graphics_context_set_stroke_width(ctx, 3);
-      graphics_draw_line(ctx, GPoint(i, s_graph_temperature[i]+graphOffset-2), GPoint(i+2, s_graph_temperature[i+2]+graphOffset-2));
+      graphics_draw_line(ctx, GPoint(i, graphOffset + s_graph_temperature[i]), GPoint(i, graphOffset + s_graph_temperature[i] - 4));
+      graphics_draw_line(ctx, GPoint(i, graphOffset + s_graph_temperature[i]), GPoint(i, graphOffset + s_graph_temperature[i] - 4));
+      // graphics_context_set_stroke_color(ctx, GColorBlack);
+      // graphics_context_set_stroke_width(ctx, 3);
+      // graphics_draw_line(ctx, GPoint(i-2, s_graph_temperature[i]+graphOffset-4), GPoint(i+2, s_graph_temperature[i]+graphOffset-4));
     }
 
     if (s_graph_cloud_cover[i] > 0) {
       graphics_context_set_stroke_color(ctx, GColorWhite);
       graphics_context_set_stroke_width(ctx, 1);
-      graphics_draw_line(ctx, GPoint(i, graphOffset-2), GPoint(i, graphOffset-2-s_graph_cloud_cover[i]));
+      graphics_draw_line(ctx, GPoint(i, graphOffset-4), GPoint(i, graphOffset-4-s_graph_cloud_cover[i]));
     }
 
   }

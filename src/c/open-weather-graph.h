@@ -8,3 +8,5 @@
 #define GraphPrecipProb 103
 #define GraphHumidity 104
 #define GraphPressure 105
+#define DailyHighs 110
+#define DailyLows 111
