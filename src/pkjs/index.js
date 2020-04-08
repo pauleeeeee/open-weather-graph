@@ -7,12 +7,7 @@ const clayConfig = require('./config.json');
 const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
 var darSkyKey = '';
-// var configuration = null;
-var configuration = {
-  "DarkSkyKey": { "value" : "b3d052cfff558eb7320b25a516a6287e"},
-  "TemperatureUnits" : { "value" : "Farenheit" }
-};
-// var location = [0,0];
+var configuration = null;
 var location = [0,0];
 var lastUpdate = 0;
 
@@ -293,10 +288,12 @@ function getWeather(){
     req.send();
 }
 
+//convert to celsius or not
 function t(temp) {
   if (!configuration.TemperatureUnits.value || configuration.TemperatureUnits.value == "Farenheit") {
     return temp;
   } else {
+    //celsius
     return (temp - 32) * 5/9;
   }
 }
