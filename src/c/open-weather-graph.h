@@ -8,5 +8,10 @@
 #define GraphPrecipProb 103
 #define GraphHumidity 104
 #define GraphPressure 105
+
 #define DailyHighs 110
 #define DailyLows 111
+#define DayMarkers 112
+#define DaysOfTheWeek 113
+#define CurrentTemperature 114
+#define GetWeather 115
