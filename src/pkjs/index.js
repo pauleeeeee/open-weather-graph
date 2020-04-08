@@ -7,21 +7,41 @@ const clayConfig = require('./config.json');
 const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
 var darSkyKey = '';
-var configuration = null;
+// var configuration = null;
+var configuration = {
+  "DarkSkyKey": { "value" : "b3d052cfff558eb7320b25a516a6287e"},
+  "TemperatureUnits" : { "value" : "Farenheit" }
+};
+// var location = [0,0];
 var location = [0,0];
+var lastUpdate = 0;
 
 //ready
 Pebble.addEventListener("ready",
     function(e) {
-        configuration = JSON.parse(localStorage.getItem("configuration"));
-        if (configuration){
-            navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
-            console.log(JSON.stringify(configuration));
+        // configuration = JSON.parse(localStorage.getItem("configuration"));
+        lastUpdate = JSON.parse(localStorage.getItem("lastUpdate"));
+        if ((new Date().getTime() - lastUpdate) > 3600000){
+          if (configuration){
+              //console.log("fetching fresh");
+              navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
+              //console.log(JSON.stringify(configuration));
+          } else {
+              Pebble.showSimpleNotificationOnPebble("Configuration Needed", "Please visit the watch face configuration page inside the Pebble phone app.");
+          }
+          // getWeather();
         } else {
-            Pebble.showSimpleNotificationOnPebble("Configuration Needed", "Please visit the watch face configuration page inside the Pebble phone app.");
+          //console.log("too soon");
         }
     }
 );
+
+Pebble.addEventListener('appmessage', function(e) {
+  var getWeather = e.payload["GetWeather"];
+  if (getWeather) {
+    navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
+  }
+});
 
 var geoLocationOptions = {
     enableHighAccuracy: true,
@@ -35,7 +55,7 @@ function geoLocationSuccess(pos) {
 };
 
 function geoLocationError(err) {
-    console.log('location error (' + err.code + '): ' + err.message);
+    //console.log('location error (' + err.code + '): ' + err.message);
     Pebble.showSimpleNotificationOnPebble("Error", "Geolocation fetch failed.");
 };
 
@@ -47,13 +67,12 @@ Pebble.addEventListener('webviewclosed', function(e) {
     if (e && !e.response) {
         return;
     }
-    console.log('web view closed');
+    //console.log('web view closed');
     configuration = clay.getSettings(e.response, false);
     localStorage.setItem("configuration", JSON.stringify(configuration));
-    console.log(JSON.stringify(configuration));
+    //console.log(JSON.stringify(configuration));
     navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
 });
-
 
 function getWeather(){
     var req = new XMLHttpRequest();
@@ -71,46 +90,65 @@ function getWeather(){
                 //
                 // and response.daily.data[] 
                 
-                var dailyHighBuffer = new ArrayBuffer(6);
-                var dailyHighView = new Uint8Array(dailyHighBuffer);
+                var dailyHighs = [];
+                var dailyLows = [];
+                // var dailyHighsAndLows = [];
 
-                var dailyLowBuffer = new ArrayBuffer(6);
-                var dailyLowView = new Uint8Array(dailyLowBuffer);
+                var dayOfTheWeekBuffer = new ArrayBuffer(7);
+                var dayOfTheWeekView = new Uint8Array(dayOfTheWeekBuffer);
 
-                //get daily higs and lows for the next 6 days
-                for (i = 0; i < 6; i++) {
-                    dailyHighView[i] = Math.round(response.daily.data[i].temperatureHigh);
-                    dailyLowView[i] = Math.round(response.daily.data[i].temperatureLow);
+                var dailyHighsBuffer = new ArrayBuffer(7);
+                var dailyHighsView = new Uint8Array(dailyHighsBuffer);
+
+                var dailyLowsBuffer = new ArrayBuffer(7);
+                var dailyLowsView = new Uint8Array(dailyLowsBuffer);
+
+                for (i = 0; i < 7; i++) {
+                  dailyHighs.push(Math.round(response.daily.data[i].temperatureHigh));
+                  dailyLows.push(Math.round(response.daily.data[i].temperatureLow));
+                  dayOfTheWeekView[i] = new Date(response.daily.data[i].time * 1000).getDay();
+                  // dailyHighsAndLows.push(""+Math.round(response.daily.data[i].temperatureHigh)+"\n"+Math.round(response.daily.data[i].temperatureLow));
+                  dailyHighsView[i] = Math.round(t(response.daily.data[i].temperatureHigh)) & 255;
+                  dailyLowsView[i] = Math.round(t(response.daily.data[i].temperatureLow)) & 255;
                 }
 
-                console.log(JSON.stringify("dailyHighView"));
-                console.log(JSON.stringify(dailyHighView));
-                console.log(JSON.stringify("dailyLowView"));
-                console.log(JSON.stringify(dailyLowView));
+                //console.log(JSON.stringify("dailyHighs"));
+                //console.log(JSON.stringify(dailyHighs));
+                //console.log(JSON.stringify("dailyLows"));
+                //console.log(JSON.stringify(dailyLows));
+                //console.log(JSON.stringify("dailyHighsView"));
+                //console.log(JSON.stringify(dailyHighsView));
+                //console.log(JSON.stringify("dailyLowsView"));
+                //console.log(JSON.stringify(dailyLowsView));
+                // //console.log(JSON.stringify("dailyHighsAndLows"));
+                // //console.log(JSON.stringify(dailyHighsAndLows));
 
                 //duplicate the array for ordering
-                // var orderedHighs = [...dailyHighView];
+                // var orderedHighs = [...dailyHighs];
                 var orderedHighs = [];
-                for (i = 0; i < dailyHighView.length; i++) {
-                    orderedHighs[i] = dailyHighView[i];
+                for (i = 0; i < dailyHighs.length; i++) {
+                    orderedHighs[i] = dailyHighs[i];
                 }
                 orderedHighs.sort(function (a, b) {
                     return (a < b) ? 1 : -1;
                 });
-                console.log(JSON.stringify("orderedHighs"));
-                console.log(JSON.stringify(orderedHighs));
                 
-                // var orderedLows = [...dailyLowView];
+                //console.log(JSON.stringify("orderedHighs"));
+                //console.log(JSON.stringify(orderedHighs));
+                
+                // var orderedLows = [...dailyLows];
                 var orderedLows = [];
-                for (i = 0; i < dailyLowView.length; i++) {
-                    orderedLows[i] = dailyLowView[i];
+                for (i = 0; i < dailyLows.length; i++) {
+                    orderedLows[i] = dailyLows[i];
+
                 }
 
                 orderedLows.sort(function (a, b) {
                     return (a > b) ? 1 : -1;
                 });
-                console.log(JSON.stringify("orderedLows"));
-                console.log(JSON.stringify(orderedLows));
+
+                //console.log(JSON.stringify("orderedLows"));
+                //console.log(JSON.stringify(orderedLows));
 
                 //pull highs and lows
                 var weeklyHigh = orderedHighs[0];
@@ -119,14 +157,21 @@ function getWeather(){
                 //compute range to use as scaling ratio
                 var weeklyTemperatureRange = weeklyHigh - weeklyLow;
                 var temperatureScale = 1;
+                var temperatureOffset = 0;
                 if (weeklyTemperatureRange > 55) {
                     temperatureScale = 55/weeklyTemperatureRange;
-                } 
+                } else {
+                  temperatureOffset = Math.round((55-weeklyTemperatureRange)/2)
+                }
                 // var temperatureScale = 55/weeklyTemperatureRange;
+                
 
 
-                console.log("weeklyTemperatureRange");
-                console.log(weeklyTemperatureRange);
+                //console.log("weeklyTemperatureRange");
+                //console.log(weeklyTemperatureRange);
+
+                //console.log("temperatureOffset");
+                //console.log(temperatureOffset);
 
                 //create 144 length arrays for each piece of information
                 var temperatureBuffer = new ArrayBuffer(144);
@@ -146,20 +191,35 @@ function getWeather(){
                 
                 var pressureBuffer = new ArrayBuffer(144);
                 var pressureView = new Uint8Array(pressureBuffer);
+
+                var dayMarkerBuffer = new ArrayBuffer(6);
+                var dayMarkerView = new Uint8Array(dayMarkerBuffer);
+
                 
                 // fill arrays
+                var dayMarkerIndex = 0;
                 for(i = 0; i < 144; i++){
-                    temperatureView[i] = Math.round((weeklyHigh - Math.round(response.hourly.data[i].temperature)) * temperatureScale);
+                    temperatureView[i] = Math.round((weeklyHigh - Math.round(response.hourly.data[i].temperature)) * temperatureScale) + temperatureOffset;
                     cloudCoverView[i] = Math.round(response.hourly.data[i].cloudCover*10);
-                    precipTypeView[i] = returnPrecipType(response.hourly.data[i].precipType);
+                    precipTypeView[i] = returnPrecipType(response.hourly.data[i].precipType, response.hourly.data[i].precipProbability);
                     precipProbabilityView[i] = Math.round(response.hourly.data[i].precipProbability*10);
                     humidityView[i] = Math.round(response.hourly.data[i].humidity*100);
                     pressureView[i] = Math.round(response.hourly.data[i].pressure*.1);
+
+                    //set day marker
+                    if(i < 143){                      
+                      var thisDate = new Date(response.hourly.data[i].time*1000);
+                      var thatDate = new Date(response.hourly.data[i+1].time*1000);
+                      if(thisDate.getDate() != thatDate.getDate()){
+                        dayMarkerView[dayMarkerIndex] = i;
+                        dayMarkerIndex++;
+                      }
+                    }
                 }
 
                 //helper function to change precip type from string to int
-                function returnPrecipType(type){
-                    if (!type){
+                function returnPrecipType(type, chance){
+                    if (!type || chance < .10){
                         return 0;
                     } else if (type == "rain") {
                         return 1;
@@ -169,35 +229,76 @@ function getWeather(){
                     }
                 }
 
-                
-                console.log("temperatureView");
-                console.log(JSON.stringify(temperatureView));
-                console.log("cloudCoverView");
-                console.log(JSON.stringify(cloudCoverView));
-                console.log("precipTypeView");
-                console.log(JSON.stringify(precipTypeView));
-                console.log("precipProbabilityView");
-                console.log(JSON.stringify(precipProbabilityView));
-                console.log("humidityView");
-                console.log(JSON.stringify(humidityView));
-                console.log("pressureView");
-                console.log(JSON.stringify(pressureView));
+                // function getDayString(int){
+                //   switch(int){
+                //     case 0:
+                //       return "Su";
+                //     case 1:
+                //       return "Mo";
+                //     case 2:
+                //       return "Tu";
+                //     case 3: 
+                //       return "We";
+                //     case 4:
+                //       return "Th";
+                //     case 5:
+                //       return "Fr";
+                //     case 6:
+                //       return "Sa";
+                //   }
+                // }
 
-                MessageQueue.sendAppMessage({
+                
+                //console.log("temperatureView");
+                //console.log(JSON.stringify(temperatureView));
+                //console.log("cloudCoverView");
+                //console.log(JSON.stringify(cloudCoverView));
+                //console.log("precipTypeView");
+                //console.log(JSON.stringify(precipTypeView));
+                //console.log("precipProbabilityView");
+                //console.log(JSON.stringify(precipProbabilityView));
+                //console.log("humidityView");
+                //console.log(JSON.stringify(humidityView));
+                //console.log("pressureView");
+                //console.log(JSON.stringify(pressureView));
+                //console.log("dayMarkerView");
+                //console.log(JSON.stringify(dayMarkerView));
+                //console.log("dayOfTheWeekView");
+                //console.log(JSON.stringify(dayOfTheWeekView));
+                //console.log("temp");
+                //console.log(JSON.stringify(t(response.currently.temperature)));
+
+                var currently = Math.round(t(response.currently.temperature));
+                //console.log(currently.toString());
+
+                Pebble.sendAppMessage({
                     "GraphTemperature": Array.from(temperatureView),
                     "GraphCloudCover": Array.from(cloudCoverView),
                     "GraphPrecipType": Array.from(precipTypeView),
                     "GraphPrecipProb": Array.from(precipProbabilityView),
                     "GraphHumidity": Array.from(humidityView),
                     "GraphPressure": Array.from(pressureView),
-                    "DailyHighs": Array.from(dailyHighView),
-                    "DailyLows": Array.from(dailyLowView)
+                    "DailyHighs": Array.from(dailyHighsView),
+                    "DailyLows": Array.from(dailyLowsView),
+                    "DayMarkers": Array.from(dayMarkerView),
+                    "DaysOfTheWeek": Array.from(dayOfTheWeekView),
+                    "CurrentTemperature": currently.toString() + "°"
+                }, function(success){
+                  localStorage.setItem("lastUpdate", new Date().getTime());
+                  lastUpdate = new Date().getTime();
                 });
-
             }
         }
     }
     req.send();
+}
+
+function t(temp) {
+  if (!configuration.TemperatureUnits.value || configuration.TemperatureUnits.value == "Farenheit") {
+    return temp;
+  } else {
+    return (temp - 32) * 5/9;
+  }
 }
 
 

@@ -15,6 +15,22 @@
             "defaultValue": "Configuration"
             },
             {
+            "type": "radiogroup",
+            "messageKey": "TemperatureUnits",
+            "label": "Temperature Units",
+            "defaultValue": "Farenheit",
+            "options": [
+                    { 
+                    "label": "Celsius", 
+                    "value": "Celsius" 
+                    },
+                    { 
+                    "label": "Farenheit", 
+                    "value": "Farenheit" 
+                    }
+                ]
+            },
+            {
                 "type":"input",
                 "messageKey":"DarkSkyKey",
                 "label":"DarkSky API Key",
