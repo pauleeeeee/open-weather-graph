@@ -71,9 +71,13 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
 }
 
-static void hour_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  update_time();
-}
+// static void hour_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+//   int fetch = 1;
+//   DictionaryIterator *iter;
+//   app_message_outbox_begin(&iter);
+//   dict_write_int(iter, GetWeather, &fetch, sizeof(int), false);
+//   app_message_outbox_send();
+// }
 
 static void in_received_handler(DictionaryIterator *iter, void *context) {
 
@@ -243,29 +247,7 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
   //draw day markers, day of the week, and daily highs / lows
   if (s_day_markers[0] > 0) {
     for (int i = 0; i < 6; i++) {
-      graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset), GPoint(s_day_markers[i], 118-graphOffset));
-    
-      s_days_of_the_week_text_layers[i] = text_layer_create(GRect(s_day_markers[i], 118-graphOffset-4, 24, 60));
-      text_layer_set_background_color(s_days_of_the_week_text_layers[i], GColorClear);
-      text_layer_set_text_color(s_days_of_the_week_text_layers[i], GColorWhite);
-      text_layer_set_font(s_days_of_the_week_text_layers[i], s_tiny_font);
-      text_layer_set_text_alignment(s_days_of_the_week_text_layers[i], GTextAlignmentCenter);
-
-      //convert ints to strings
-      snprintf( s_daily_text_highs[i], sizeof(s_daily_text_highs[i]), "%d", s_daily_highs[i] );
-      snprintf( s_daily_text_lows[i], sizeof(s_daily_text_lows[i]), "%d", s_daily_lows[i] );
-      
-      //concatenate the day string, highs, and lows,
-      strncpy(s_daily_text_highs_and_lows[i], getDayString(i), sizeof(s_daily_text_highs_and_lows[i]));
-      strcat(s_daily_text_highs_and_lows[i], "\n");
-      strcat(s_daily_text_highs_and_lows[i], s_daily_text_highs[i]);
-      strcat(s_daily_text_highs_and_lows[i], "\n");
-      strcat(s_daily_text_highs_and_lows[i], s_daily_text_lows[i]);
-
-      //plus one on the i to shift one day forward   
-      text_layer_set_text(s_days_of_the_week_text_layers[i], s_daily_text_highs_and_lows[i + 1]);
-      layer_add_child(s_weather_window_layer, text_layer_get_layer(s_days_of_the_week_text_layers[i]));
-      
+      graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset), GPoint(s_day_markers[i], 118-graphOffset));      
     }
   }
 }
@@ -384,6 +366,32 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(s_weather_window_layer, s_weather_window_layer_update_proc);
   layer_add_child(window_layer, s_weather_window_layer);
 
+  if (s_day_markers[0] > 0) {
+    for (int i = 0; i < 6; i++) {
+
+      s_days_of_the_week_text_layers[i] = text_layer_create(GRect(s_day_markers[i], 118-28-4, 24, 60));
+      text_layer_set_background_color(s_days_of_the_week_text_layers[i], GColorClear);
+      text_layer_set_text_color(s_days_of_the_week_text_layers[i], GColorWhite);
+      text_layer_set_font(s_days_of_the_week_text_layers[i], s_tiny_font);
+      text_layer_set_text_alignment(s_days_of_the_week_text_layers[i], GTextAlignmentCenter);
+
+      //convert ints to strings
+      snprintf( s_daily_text_highs[i], sizeof(s_daily_text_highs[i]), "%d", s_daily_highs[i] );
+      snprintf( s_daily_text_lows[i], sizeof(s_daily_text_lows[i]), "%d", s_daily_lows[i] );
+      
+      //concatenate the day string, highs, and lows,
+      strncpy(s_daily_text_highs_and_lows[i], getDayString(i), sizeof(s_daily_text_highs_and_lows[i]));
+      strcat(s_daily_text_highs_and_lows[i], "\n");
+      strcat(s_daily_text_highs_and_lows[i], s_daily_text_highs[i]);
+      strcat(s_daily_text_highs_and_lows[i], "\n");
+      strcat(s_daily_text_highs_and_lows[i], s_daily_text_lows[i]);
+
+      //plus one on the i to shift one day forward   
+      text_layer_set_text(s_days_of_the_week_text_layers[i], s_daily_text_highs_and_lows[i + 1]);
+      layer_add_child(s_weather_window_layer, text_layer_get_layer(s_days_of_the_week_text_layers[i]));
+      
+    }
+  }
 
   window_set_background_color(window, GColorBlack);
 
@@ -420,7 +428,7 @@ static void init() {
   
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-  tick_timer_service_subscribe(HOUR_UNIT, hour_tick_handler);
+  // tick_timer_service_subscribe(HOUR_UNIT, hour_tick_handler);
 
   update_time();
   update_date();
