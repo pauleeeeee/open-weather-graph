@@ -25,7 +25,6 @@
     "targetPlatforms": [
       "aplite",
       "basalt",
-      "chalk",
       "diorite"
     ],
     "watchapp": {
@@ -40,10 +39,21 @@
       "GraphHumidity": 104,
       "GraphPressure": 105,
       "DailyHighs": 110,
-      "DailyLows": 111
+      "DailyLows": 111,
+      "DayMarkers": 112,
+      "DaysOfTheWeek": 113,
+      "CurrentTemperature": 114,
+      "GetWeather": 115
     },
     "resources": {
-      "media": []
+      "media": [
+        {
+          "file": "fonts/type_writer.ttf",
+          "name": "FONT_TYPE_WRITER_8",
+          "targetPlatforms": null,
+          "type": "font"
+        }
+      ]
     }
   }
 }
