@@ -22,6 +22,7 @@ static uint8_t s_graph_precip_type[144];
 static uint8_t s_graph_precip_probability[144];
 static uint8_t s_graph_humidity[144];
 static uint8_t s_graph_pressure[144];
+static uint8_t s_graph_wind_speed[144];
 
 static int8_t s_daily_highs[7];
 static int8_t s_daily_lows[7];
@@ -97,6 +98,12 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
   if (graph_cloud_cover_tuple) {
       memcpy(s_graph_cloud_cover, graph_cloud_cover_tuple->value->data, 144);
       persist_write_data(GraphCloudCover, s_graph_cloud_cover, 144);
+  }
+
+  Tuple *graph_wind_speed_tuple = dict_find (iter, GraphWindSpeed);
+  if (graph_wind_speed_tuple) {
+      memcpy(s_graph_wind_speed, graph_wind_speed_tuple->value->data, 144);
+      persist_write_data(GraphWindSpeed, s_graph_wind_speed, 144);
   }
 
   Tuple *daily_highs_tuple = dict_find (iter, DailyHighs);
@@ -176,8 +183,10 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
   // draw_random_gradient_rect(ctx, GRect(bounds.origin.x, bounds.origin.y, bounds.size.w, bounds.size.h), GColorWhite, GColorBlack, TOP_TO_BOTTOM);
   graphics_context_set_stroke_width(ctx, 1);
 
-  int graphOffset = 28;
+  int graphOffset = 30;
   int pixelOffset = 0;
+
+
 
   for (int i = 0; i < 144; i++){
 
@@ -221,13 +230,22 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
       // graphics_context_set_stroke_color(ctx, GColorBlack);
       // graphics_context_set_stroke_width(ctx, 3);
       // graphics_draw_line(ctx, GPoint(i-2, s_graph_temperature[i]+graphOffset-4), GPoint(i+2, s_graph_temperature[i]+graphOffset-4));
+        
+      //draw wind speeed line  
+      //offset is 7
+      //7 is top 16 is 
+      graphics_context_set_stroke_color(ctx, GColorWhite);
+      graphics_draw_line(ctx, GPoint(i,s_graph_wind_speed[i]+7), GPoint(i+1,s_graph_wind_speed[i+1]+7));
+
     }
 
     if (s_graph_cloud_cover[i] > 0) {
       graphics_context_set_stroke_color(ctx, GColorWhite);
       graphics_context_set_stroke_width(ctx, 1);
-      graphics_draw_line(ctx, GPoint(i, graphOffset-4), GPoint(i, graphOffset-4-s_graph_cloud_cover[i]));
+      graphics_draw_line(ctx, GPoint(i, graphOffset+2), GPoint(i, graphOffset+2-s_graph_cloud_cover[i]));
     }
+
+
 
   }
 
@@ -247,9 +265,11 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
   //draw day markers, day of the week, and daily highs / lows
   if (s_day_markers[0] > 0) {
     for (int i = 0; i < 6; i++) {
-      graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset), GPoint(s_day_markers[i], 118-graphOffset));      
+      graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset+5), GPoint(s_day_markers[i], 124-graphOffset));      
     }
   }
+
+
 }
 
 
@@ -264,6 +284,9 @@ static void main_window_load(Window *window) {
   } 
   if(persist_exists(GraphCloudCover)){
     persist_read_data(GraphCloudCover, s_graph_cloud_cover, sizeof(s_graph_cloud_cover));
+  } 
+  if(persist_exists(GraphWindSpeed)){
+    persist_read_data(GraphWindSpeed, s_graph_wind_speed, sizeof(s_graph_wind_speed));
   } 
   if(persist_exists(GraphPrecipType)){
     persist_read_data(GraphPrecipType, s_graph_precip_type, sizeof(s_graph_precip_type));
@@ -369,7 +392,7 @@ static void main_window_load(Window *window) {
   if (s_day_markers[0] > 0) {
     for (int i = 0; i < 6; i++) {
 
-      s_days_of_the_week_text_layers[i] = text_layer_create(GRect(s_day_markers[i], 118-28-4, 24, 60));
+      s_days_of_the_week_text_layers[i] = text_layer_create(GRect(s_day_markers[i], 118-28-2, 24, 60));
       text_layer_set_background_color(s_days_of_the_week_text_layers[i], GColorClear);
       text_layer_set_text_color(s_days_of_the_week_text_layers[i], GColorWhite);
       text_layer_set_font(s_days_of_the_week_text_layers[i], s_tiny_font);

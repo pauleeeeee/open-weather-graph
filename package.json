@@ -38,6 +38,7 @@
       "GraphPrecipProb": 103,
       "GraphHumidity": 104,
       "GraphPressure": 105,
+      "GraphWindSpeed": 106,
       "DailyHighs": 110,
       "DailyLows": 111,
       "DayMarkers": 112,

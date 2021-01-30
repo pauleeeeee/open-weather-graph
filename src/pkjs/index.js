@@ -6,8 +6,13 @@ const Clay = require('pebble-clay');
 const clayConfig = require('./config.json');
 const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
-var darSkyKey = '';
+
+var configuration = {
+  DarkSkyKey: {value: 'e72e80e34606738a0fb55d5addda956a'},
+  TemperatureUnits: {value: "Farenheit"}
+}
 var configuration = null;
+//var location = [35.2020871,-101.8749806];
 var location = [0,0];
 var lastUpdate = 0;
 
@@ -28,6 +33,7 @@ Pebble.addEventListener("ready",
         } else {
           //console.log("too soon");
         }
+        //getWeather();
     }
 );
 
@@ -152,16 +158,15 @@ function getWeather(){
                 //compute range to use as scaling ratio
                 var weeklyTemperatureRange = weeklyHigh - weeklyLow;
                 var temperatureScale = 1;
-                var temperatureOffset = 0;
+                var temperatureOffset = 10;
                 if (weeklyTemperatureRange > 55) {
                     temperatureScale = 55/weeklyTemperatureRange;
                 } else {
-                  temperatureOffset = Math.round((55-weeklyTemperatureRange)/2)
+                  temperatureOffset += Math.round((55-weeklyTemperatureRange)/2)
                 }
+
                 // var temperatureScale = 55/weeklyTemperatureRange;
                 
-
-
                 //console.log("weeklyTemperatureRange");
                 //console.log(weeklyTemperatureRange);
 
@@ -187,6 +192,9 @@ function getWeather(){
                 var pressureBuffer = new ArrayBuffer(144);
                 var pressureView = new Uint8Array(pressureBuffer);
 
+                var windSpeedBuffer = new ArrayBuffer(144);
+                var windSpeedView = new Uint8Array(windSpeedBuffer);
+
                 var dayMarkerBuffer = new ArrayBuffer(6);
                 var dayMarkerView = new Uint8Array(dayMarkerBuffer);
 
@@ -200,6 +208,10 @@ function getWeather(){
                     precipProbabilityView[i] = Math.round(response.hourly.data[i].precipProbability*10);
                     humidityView[i] = Math.round(response.hourly.data[i].humidity*100);
                     pressureView[i] = Math.round(response.hourly.data[i].pressure*.1);
+                    var windSpeed = Math.round(response.hourly.data[i].windGust/10);
+                    if (windSpeed > 4) {windSpeed = 4};
+                    windSpeedView[i] = ( i % 2 ? 5 - windSpeed : 5 + windSpeed);
+
 
                     //set day marker
                     if(i < 143){                      
@@ -256,6 +268,8 @@ function getWeather(){
                 //console.log(JSON.stringify(humidityView));
                 //console.log("pressureView");
                 //console.log(JSON.stringify(pressureView));
+                console.log("windSpeedView");
+                console.log(JSON.stringify(windSpeedView));
                 //console.log("dayMarkerView");
                 //console.log(JSON.stringify(dayMarkerView));
                 //console.log("dayOfTheWeekView");
@@ -272,7 +286,8 @@ function getWeather(){
                     "GraphPrecipType": Array.from(precipTypeView),
                     "GraphPrecipProb": Array.from(precipProbabilityView),
                     "GraphHumidity": Array.from(humidityView),
-                    "GraphPressure": Array.from(pressureView),
+                    // "GraphPressure": Array.from(pressureView),
+                    "GraphWindSpeed": Array.from(windSpeedView),
                     "DailyHighs": Array.from(dailyHighsView),
                     "DailyLows": Array.from(dailyLowsView),
                     "DayMarkers": Array.from(dayMarkerView),
