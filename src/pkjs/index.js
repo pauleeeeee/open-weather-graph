@@ -205,7 +205,8 @@ function getWeather(){
                     pressureView[i] = Math.round(response.hourly.data[i].pressure*.1);
                     var windSpeed = Math.round(response.hourly.data[i].windGust/10);
                     if (windSpeed > 4) {windSpeed = 4};
-                    windSpeedView[i] = ( i % 2 ? 5 - windSpeed : 5 + windSpeed);
+                    windSpeed = windSpeed * 2;
+                    windSpeedView[i] = ( i % 2 ? 9 - windSpeed : 9 + windSpeed);
 
 
                     //set day marker
@@ -263,8 +264,8 @@ function getWeather(){
                 //console.log(JSON.stringify(humidityView));
                 //console.log("pressureView");
                 //console.log(JSON.stringify(pressureView));
-                //console.log("windSpeedView");
-                //console.log(JSON.stringify(windSpeedView));
+                console.log("windSpeedView");
+                console.log(JSON.stringify(windSpeedView));
                 //console.log("dayMarkerView");
                 //console.log(JSON.stringify(dayMarkerView));
                 //console.log("dayOfTheWeekView");

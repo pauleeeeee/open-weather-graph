@@ -234,7 +234,7 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
       //offset is 7
       //7 is top 16 is 
       graphics_context_set_stroke_color(ctx, GColorWhite);
-      graphics_draw_line(ctx, GPoint(i,s_graph_wind_speed[i]+7), GPoint(i+1,s_graph_wind_speed[i+1]+7));
+      graphics_draw_line(ctx, GPoint(i,s_graph_wind_speed[i]+5), GPoint(i+1,s_graph_wind_speed[i+1]+5));
 
     }
 
