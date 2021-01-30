@@ -7,10 +7,6 @@ const clayConfig = require('./config.json');
 const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
 
-var configuration = {
-  DarkSkyKey: {value: 'e72e80e34606738a0fb55d5addda956a'},
-  TemperatureUnits: {value: "Farenheit"}
-}
 var configuration = null;
 //var location = [35.2020871,-101.8749806];
 var location = [0,0];
