@@ -14,7 +14,7 @@ var lastUpdate = 0;
 //ready
 Pebble.addEventListener("ready",
     function(e) {
-        // configuration = JSON.parse(localStorage.getItem("configuration"));
+        configuration = JSON.parse(localStorage.getItem("configuration"));
         lastUpdate = JSON.parse(localStorage.getItem("lastUpdate"));
         if ((new Date().getTime() - lastUpdate) > 3600000){
           if (configuration){
