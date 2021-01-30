@@ -172,19 +172,18 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
 
   APP_LOG(APP_LOG_LEVEL_DEBUG, "weather window height %d", bounds.size.h);
 
-  // draw_gradient_rect(ctx, GRect(bounds.origin.x, graphOffset, bounds.size.w, 55), GColorBlack, GColorWhite, TOP_TO_BOTTOM);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 30, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_90_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 35, bounds.size.w, 10), GColorBlack, GColorWhite, DITHER_80_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 45, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_70_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 58, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_40_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 71, bounds.size.w, 9), GColorBlack, GColorWhite, DITHER_25_PERCENT);
-  draw_dithered_rect(ctx, GRect(bounds.origin.x, 80, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_10_PERCENT);
-  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 80, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_10_PERCENT);
-  // draw_random_gradient_rect(ctx, GRect(bounds.origin.x, bounds.origin.y, bounds.size.w, bounds.size.h), GColorWhite, GColorBlack, TOP_TO_BOTTOM);
-  graphics_context_set_stroke_width(ctx, 1);
-
   int graphOffset = 30;
   int pixelOffset = 0;
+
+  draw_gradient_rect(ctx, GRect(bounds.origin.x, graphOffset+10, bounds.size.w, 55), GColorWhite, GColorBlack, TOP_TO_BOTTOM);
+  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 30, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_90_PERCENT);
+  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 35, bounds.size.w, 10), GColorBlack, GColorWhite, DITHER_80_PERCENT);
+  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 45, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_70_PERCENT);
+  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 58, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_40_PERCENT);
+  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 71, bounds.size.w, 9), GColorBlack, GColorWhite, DITHER_25_PERCENT);
+  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 80, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_10_PERCENT);
+
+  graphics_context_set_stroke_width(ctx, 1);
 
 
 

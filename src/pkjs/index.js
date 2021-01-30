@@ -263,8 +263,8 @@ function getWeather(){
                 //console.log(JSON.stringify(humidityView));
                 //console.log("pressureView");
                 //console.log(JSON.stringify(pressureView));
-                console.log("windSpeedView");
-                console.log(JSON.stringify(windSpeedView));
+                //console.log("windSpeedView");
+                //console.log(JSON.stringify(windSpeedView));
                 //console.log("dayMarkerView");
                 //console.log(JSON.stringify(dayMarkerView));
                 //console.log("dayOfTheWeekView");
