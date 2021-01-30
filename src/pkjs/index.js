@@ -8,7 +8,6 @@ const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
 
 var configuration = null;
-//var location = [35.2020871,-101.8749806];
 var location = [0,0];
 var lastUpdate = 0;
 
