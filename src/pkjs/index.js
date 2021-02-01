@@ -222,7 +222,8 @@ function getWeather(){
 
                 //helper function to change precip type from string to int
                 function returnPrecipType(type, chance){
-                    if (!type || chance < .10){
+                    // if (!type || chance < .10){
+                    if (!type){
                         return 0;
                     } else if (type == "rain") {
                         return 1;

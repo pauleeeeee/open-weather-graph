@@ -391,7 +391,7 @@ static void main_window_load(Window *window) {
   if (s_day_markers[0] > 0) {
     for (int i = 0; i < 6; i++) {
 
-      s_days_of_the_week_text_layers[i] = text_layer_create(GRect(s_day_markers[i], 118-28-2, 24, 60));
+      s_days_of_the_week_text_layers[i] = text_layer_create(GRect(s_day_markers[i], 118-28, 24, 60));
       text_layer_set_background_color(s_days_of_the_week_text_layers[i], GColorClear);
       text_layer_set_text_color(s_days_of_the_week_text_layers[i], GColorWhite);
       text_layer_set_font(s_days_of_the_week_text_layers[i], s_tiny_font);
