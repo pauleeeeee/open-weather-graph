@@ -402,7 +402,7 @@ static void main_window_load(Window *window) {
       snprintf( s_daily_text_lows[i], sizeof(s_daily_text_lows[i]), "%d", s_daily_lows[i] );
       
       //concatenate the day string, highs, and lows,
-      strncpy(s_daily_text_highs_and_lows[i], getDayString(i), sizeof(s_daily_text_highs_and_lows[i]));
+      strncpy(s_daily_text_highs_and_lows[i], getDayString(s_days_of_the_week[i]), sizeof(s_daily_text_highs_and_lows[i]));
       strcat(s_daily_text_highs_and_lows[i], "\n");
       strcat(s_daily_text_highs_and_lows[i], s_daily_text_highs[i]);
       strcat(s_daily_text_highs_and_lows[i], "\n");

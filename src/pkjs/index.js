@@ -22,7 +22,7 @@ Pebble.addEventListener("ready",
               navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
               //console.log(JSON.stringify(configuration));
           } else {
-              Pebble.showSimpleNotificationOnPebble("Configuration Needed", "Please visit the watch face configuration page inside the Pebble phone app.");
+              //Pebble.showSimpleNotificationOnPebble("Configuration Needed", "Please visit the watch face configuration page inside the Pebble phone app.");
           }
           // getWeather();
         } else {
@@ -52,7 +52,7 @@ function geoLocationSuccess(pos) {
 
 function geoLocationError(err) {
     //console.log('location error (' + err.code + '): ' + err.message);
-    Pebble.showSimpleNotificationOnPebble("Error", "Geolocation fetch failed.");
+    //Pebble.showSimpleNotificationOnPebble("Error", "Geolocation fetch failed.");
 };
 
 Pebble.addEventListener('showConfiguration', function(e) {
@@ -79,7 +79,7 @@ function getWeather(){
             if(req.status == 200) {
 
                 var response = JSON.parse(req.responseText);
-
+                //console.log(JSON.stringify(response));
                 // response.currently 
                 //
                 // response.hourly.data[]
@@ -265,8 +265,8 @@ function getWeather(){
                 //console.log(JSON.stringify(humidityView));
                 //console.log("pressureView");
                 //console.log(JSON.stringify(pressureView));
-                console.log("windSpeedView");
-                console.log(JSON.stringify(windSpeedView));
+                //console.log("windSpeedView");
+                //console.log(JSON.stringify(windSpeedView));
                 //console.log("dayMarkerView");
                 //console.log(JSON.stringify(dayMarkerView));
                 //console.log("dayOfTheWeekView");
