@@ -1,7 +1,4 @@
 {
-    "latitude": 39.5846751,
-    "longitude": -105.0217585,
-    "timezone": "America/Denver",
     "currently": {
         "time": 1585530703,
         "summary": "Mostly Cloudy",

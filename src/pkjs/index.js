@@ -79,7 +79,7 @@ function getWeather(){
             if(req.status == 200) {
 
                 var response = JSON.parse(req.responseText);
-                //console.log(JSON.stringify(response));
+                console.log(JSON.stringify(response));
                 // response.currently 
                 //
                 // response.hourly.data[]
@@ -197,10 +197,11 @@ function getWeather(){
                 // fill arrays
                 var dayMarkerIndex = 0;
                 for(i = 0; i < 144; i++){
-                    temperatureView[i] = Math.round((weeklyHigh - Math.round(response.hourly.data[i].temperature)) * temperatureScale) + temperatureOffset;
+                    var temp = Math.round((weeklyHigh - Math.round(response.hourly.data[i].temperature)) * temperatureScale) + temperatureOffset;
+                    temperatureView[i] = temp;
                     cloudCoverView[i] = Math.round(response.hourly.data[i].cloudCover*10);
-                    precipTypeView[i] = returnPrecipType(response.hourly.data[i].precipType, response.hourly.data[i].precipProbability);
-                    precipProbabilityView[i] = Math.round(response.hourly.data[i].precipProbability*10);
+                    precipTypeView[i] = returnPrecipType(response.hourly.data[i].precipType);
+                    precipProbabilityView[i] = Math.round( temp * (response.hourly.data[i].precipProbability*10) );
                     humidityView[i] = Math.round(response.hourly.data[i].humidity*100);
                     pressureView[i] = Math.round(response.hourly.data[i].pressure*.1);
                     var windSpeed = Math.round(response.hourly.data[i].windGust/10);
@@ -221,8 +222,7 @@ function getWeather(){
                 }
 
                 //helper function to change precip type from string to int
-                function returnPrecipType(type, chance){
-                    // if (!type || chance < .10){
+                function returnPrecipType(type){
                     if (!type){
                         return 0;
                     } else if (type == "rain") {
@@ -277,20 +277,24 @@ function getWeather(){
                 var currently = Math.round(t(response.currently.temperature));
                 //console.log(currently.toString());
 
-                Pebble.sendAppMessage({
-                    "GraphTemperature": Array.from(temperatureView),
-                    "GraphCloudCover": Array.from(cloudCoverView),
-                    "GraphPrecipType": Array.from(precipTypeView),
-                    "GraphPrecipProb": Array.from(precipProbabilityView),
-                    "GraphHumidity": Array.from(humidityView),
-                    // "GraphPressure": Array.from(pressureView),
-                    "GraphWindSpeed": Array.from(windSpeedView),
-                    "DailyHighs": Array.from(dailyHighsView),
-                    "DailyLows": Array.from(dailyLowsView),
-                    "DayMarkers": Array.from(dayMarkerView),
-                    "DaysOfTheWeek": Array.from(dayOfTheWeekView),
-                    "CurrentTemperature": currently.toString() + "°"
-                }, function(success){
+                var message = {
+                  "GraphTemperature": Array.from(temperatureView),
+                  "GraphCloudCover": Array.from(cloudCoverView),
+                  "GraphPrecipType": Array.from(precipTypeView),
+                  "GraphPrecipProb": Array.from(precipProbabilityView),
+                  //"GraphHumidity": Array.from(humidityView),
+                  // "GraphPressure": Array.from(pressureView),
+                  "GraphWindSpeed": Array.from(windSpeedView),
+                  "DailyHighs": Array.from(dailyHighsView),
+                  "DailyLows": Array.from(dailyLowsView),
+                  "DayMarkers": Array.from(dayMarkerView),
+                  "DaysOfTheWeek": Array.from(dayOfTheWeekView),
+                  "CurrentTemperature": currently.toString() + "°"
+                }
+
+                console.log(JSON.stringify(message))
+
+                Pebble.sendAppMessage(message, function(success){
                   localStorage.setItem("lastUpdate", new Date().getTime());
                   lastUpdate = new Date().getTime();
                 });
