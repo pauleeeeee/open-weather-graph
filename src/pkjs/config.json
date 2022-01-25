@@ -31,10 +31,27 @@
                 ]
             },
             {
+            "type": "radiogroup",
+            "messageKey": "APIchoice",
+            "label": "Choose Weather API",
+            "defaultValue": "DarkSky",
+            "description": "you must independently obtain an API key from DarkSky or Pirate Weather",
+            "options": [
+                        { 
+                        "label": "DarkSky", 
+                        "value": "DarkSky" 
+                        },
+                        { 
+                        "label": "Pirate Weather", 
+                        "value": "Pirate Weather" 
+                        }
+                    ]
+            },
+            {
                 "type":"input",
-                "messageKey":"DarkSkyKey",
-                "label":"DarkSky API Key",
-                "description":"enter a DarkSky developer API key"
+                "messageKey":"APIkey",
+                "label":"API Key",
+                "description":"enter the appropriate developer API key"
             }
         ]
     },

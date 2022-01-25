@@ -1,7 +1,7 @@
 {
   "name": "open-weather-graph",
   "author": "swansswansswansswanssosoft",
-  "version": "1.0.0",
+  "version": "1.5.0",
   "keywords": [
     "pebble-app"
   ],
@@ -31,7 +31,8 @@
       "watchface": true
     },
     "messageKeys": {
-      "DarkSkyKey": 1,
+      "APIkey": 1,
+      "APIchoice": 2,
       "GraphTemperature": 100,
       "GraphCloudCover": 101,
       "GraphPrecipType": 102,
