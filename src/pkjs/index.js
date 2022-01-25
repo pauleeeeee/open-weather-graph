@@ -76,7 +76,7 @@ function getWeather(){
     if (configuration.APIchoice.value == "Pirate Weather") {
       apiURL = 'https://api.pirateweather.net/forecast/';
     }
-    req.open('GET', 'https://api.darksky.net/forecast/' + configuration.APIkey.value + '/' + location[0] + "," + location[1] + '?exclude=minutely,alerts,flags&extend=hourly', true);
+    req.open('GET', apiURL + configuration.APIkey.value + '/' + location[0] + "," + location[1] + '?exclude=minutely,alerts,flags&extend=hourly', true);
     req.onload = function(e) {
         if (req.readyState == 4) {
           // 200 - HTTP OK
