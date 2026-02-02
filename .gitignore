@@ -1,4 +1,9 @@
 build/
 node_modules/
 .lock-waf_darwin_build
+.lock-waf_linux_build
 .lock-waf_linux2_build
+_examples
+
+# Dev-only: injected API key (do not commit)
+src/pkjs/api-key-injected.js

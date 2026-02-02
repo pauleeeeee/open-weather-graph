@@ -6,36 +6,74 @@ const Clay = require('pebble-clay');
 const clayConfig = require('./config.json');
 const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
+// Optional: loaded from api-key-injected.js (from OPEN_WEATHER_GRAPH_API_KEY) for dev
+var DEV_API_KEY = '';
+try {
+  var injected = require('./api-key-injected.js');
+  if (injected && injected.apiKey) DEV_API_KEY = injected.apiKey;
+} catch (e) {}
 
 var configuration = null;
 var location = [0,0];
 var lastUpdate = 0;
 
-//ready
-Pebble.addEventListener("ready",
-    function(e) {
-        configuration = JSON.parse(localStorage.getItem("configuration"));
-        lastUpdate = JSON.parse(localStorage.getItem("lastUpdate"));
-        if ((new Date().getTime() - lastUpdate) > 3600000){
-          if (configuration){
-              //console.log("fetching fresh");
-              navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
-              //console.log(JSON.stringify(configuration));
-          } else {
-              //Pebble.showSimpleNotificationOnPebble("Configuration Needed", "Please visit the watch face configuration page inside the Pebble phone app.");
-          }
-          // getWeather();
-        } else {
-          //console.log("too soon");
-        }
-        //getWeather();
-    }
-);
+function hasApiKey() {
+  var cfg = getConfiguration();
+  var key = (typeof DEV_API_KEY !== 'undefined' && DEV_API_KEY)
+    ? DEV_API_KEY
+    : (cfg && cfg.APIkey && cfg.APIkey.value ? cfg.APIkey.value : '');
+  return !!key;
+}
+
+/** Returns saved config, or default config when using injected API key and no config saved yet. */
+function getConfiguration() {
+  var saved = configuration || JSON.parse(localStorage.getItem("configuration") || "null");
+  if (saved) return saved;
+  if (typeof DEV_API_KEY !== 'undefined' && DEV_API_KEY) {
+    return {
+      APIkey: { value: DEV_API_KEY },
+      TemperatureUnits: { value: "Farenheit" },
+      HorizonDays: { value: "6" }
+    };
+  }
+  return null;
+}
+
+function tryFetchWeather() {
+  configuration = JSON.parse(localStorage.getItem("configuration") || "null");
+  if (!configuration && DEV_API_KEY) {
+    configuration = getConfiguration();
+  }
+  lastUpdate = parseInt(localStorage.getItem("lastUpdate") || "0", 10);
+  var now = new Date().getTime();
+  if (!hasApiKey()) {
+    console.log("[pkjs] tryFetchWeather: no API key, skip");
+    return;
+  }
+  if (lastUpdate && (now - lastUpdate) < 3600000) {
+    console.log("[pkjs] tryFetchWeather: cache fresh (" + Math.round((now - lastUpdate) / 60000) + " min ago), skip");
+    return;
+  }
+  console.log("[pkjs] tryFetchWeather: getting location...");
+  navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
+}
+
+// On app ready: fetch weather if we have API key (and cache is stale or missing)
+Pebble.addEventListener("ready", function(e) {
+  configuration = JSON.parse(localStorage.getItem("configuration") || "null");
+  console.log("[pkjs] ready, hasApiKey=" + hasApiKey());
+  tryFetchWeather();
+});
 
 Pebble.addEventListener('appmessage', function(e) {
   var getWeather = e.payload["GetWeather"];
   if (getWeather) {
-    navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
+    configuration = JSON.parse(localStorage.getItem("configuration") || "null");
+    if (!configuration && DEV_API_KEY) configuration = getConfiguration();
+    console.log("[pkjs] GetWeather from watch, hasApiKey=" + hasApiKey());
+    if (hasApiKey()) {
+      navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
+    }
   }
 });
 
@@ -47,13 +85,13 @@ var geoLocationOptions = {
 function geoLocationSuccess(pos) {
     location[0] = pos.coords.latitude;
     location[1] = pos.coords.longitude;
+    console.log("[pkjs] geo success " + location[0] + "," + location[1] + ", fetching weather");
     getWeather();
-};
+}
 
 function geoLocationError(err) {
-    //console.log('location error (' + err.code + '): ' + err.message);
-    //Pebble.showSimpleNotificationOnPebble("Error", "Geolocation fetch failed.");
-};
+    console.log("[pkjs] geo error " + err.code + ": " + err.message);
+}
 
 Pebble.addEventListener('showConfiguration', function(e) {
     Pebble.openURL(clay.generateUrl());
@@ -71,25 +109,37 @@ Pebble.addEventListener('webviewclosed', function(e) {
 });
 
 function getWeather(){
-    var req = new XMLHttpRequest();
-    var apiURL = 'https://api.darksky.net/forecast/';
-    if (configuration.APIchoice.value == "Pirate Weather") {
-      apiURL = 'https://api.pirateweather.net/forecast/';
+    configuration = configuration || getConfiguration();
+    if (!configuration) {
+        console.log("[pkjs] getWeather: no configuration");
+        return;
     }
-    req.open('GET', apiURL + configuration.APIkey.value + '/' + location[0] + "," + location[1] + '?exclude=minutely,alerts,flags&extend=hourly', true);
+    var apiKey = (typeof DEV_API_KEY !== 'undefined' && DEV_API_KEY) ? DEV_API_KEY : (configuration.APIkey && configuration.APIkey.value ? configuration.APIkey.value : '');
+    if (!apiKey) {
+        console.log("[pkjs] getWeather: no API key");
+        return;
+    }
+    var req = new XMLHttpRequest();
+    var unitsParam = (configuration.TemperatureUnits && configuration.TemperatureUnits.value === 'Celsius') ? '&units=si' : '&units=us';
+    var apiURL = 'https://api.pirateweather.net/forecast/' + apiKey + '/' + location[0] + ',' + location[1] + '?exclude=minutely,alerts,flags&extend=hourly' + unitsParam;
+    console.log("[pkjs] getWeather: request start");
+    req.open('GET', apiURL, true);
     req.onload = function(e) {
         if (req.readyState == 4) {
-          // 200 - HTTP OK
             if(req.status == 200) {
 
                 var response = JSON.parse(req.responseText);
                 console.log(JSON.stringify(response));
-                // response.currently 
-                //
-                // response.hourly.data[]
-                //
-                // and response.daily.data[] 
-                
+
+                // Horizon: 1–6 days from config, default 6
+                var D = 6;
+                if (configuration.HorizonDays && configuration.HorizonDays.value) {
+                  D = parseInt(configuration.HorizonDays.value, 10);
+                  if (isNaN(D) || D < 1 || D > 6) D = 6;
+                }
+                var totalHours = D * 24;
+                var hourlyData = response.hourly.data;
+
                 var dailyHighs = [];
                 var dailyLows = [];
                 // var dailyHighsAndLows = [];
@@ -126,7 +176,7 @@ function getWeather(){
                 //duplicate the array for ordering
                 // var orderedHighs = [...dailyHighs];
                 var orderedHighs = [];
-                for (i = 0; i < dailyHighs.length; i++) {
+                for (i = 0; i < Math.min(D, dailyHighs.length); i++) {
                     orderedHighs[i] = dailyHighs[i];
                 }
                 orderedHighs.sort(function (a, b) {
@@ -138,11 +188,9 @@ function getWeather(){
                 
                 // var orderedLows = [...dailyLows];
                 var orderedLows = [];
-                for (i = 0; i < dailyLows.length; i++) {
+                for (i = 0; i < Math.min(D, dailyLows.length); i++) {
                     orderedLows[i] = dailyLows[i];
-
                 }
-
                 orderedLows.sort(function (a, b) {
                     return (a > b) ? 1 : -1;
                 });
@@ -198,32 +246,43 @@ function getWeather(){
                 var dayMarkerView = new Uint8Array(dayMarkerBuffer);
 
                 
-                // fill arrays
-                var dayMarkerIndex = 0;
-                for(i = 0; i < 144; i++){
-                    var temp = Math.round((weeklyHigh - Math.round(response.hourly.data[i].temperature)) * temperatureScale) + temperatureOffset;
-                    temperatureView[i] = temp;
-                    cloudCoverView[i] = Math.round(response.hourly.data[i].cloudCover*10);
-                    precipTypeView[i] = returnPrecipType(response.hourly.data[i].precipType);
-                    precipProbabilityView[i] = Math.round( temp * (response.hourly.data[i].precipProbability*10) );
-                    humidityView[i] = Math.round(response.hourly.data[i].humidity*100);
-                    pressureView[i] = Math.round(response.hourly.data[i].pressure*.1);
-                    var windSpeed = Math.round(response.hourly.data[i].windGust/10);
-                    if (windSpeed > 4) {windSpeed = 4};
-                    windSpeed = windSpeed * 2;
-                    windSpeedView[i] = ( i % 2 ? 9 - windSpeed : 9 + windSpeed);
+                // Resample D*24 hours to 144 columns with linear interpolation
+                for (var j = 0; j < 144; j++) {
+                  var h = (j * totalHours) / 144;
+                  var h0 = Math.floor(h);
+                  var h1 = Math.min(h0 + 1, totalHours - 1);
+                  var frac = h - h0;
+                  var d0 = hourlyData[h0];
+                  var d1 = hourlyData[h1];
 
+                  var tempRaw = (1 - frac) * d0.temperature + frac * d1.temperature;
+                  var temp = Math.round((weeklyHigh - Math.round(tempRaw)) * temperatureScale) + temperatureOffset;
+                  temperatureView[j] = Math.max(0, Math.min(255, temp));
 
-                    //set day marker
-                    if(i < 143){                      
-                      var thisDate = new Date(response.hourly.data[i].time*1000);
-                      var thatDate = new Date(response.hourly.data[i+1].time*1000);
-                      if(thisDate.getDate() != thatDate.getDate()){
-                        dayMarkerView[dayMarkerIndex] = i;
-                        dayMarkerIndex++;
-                      }
-                    }
+                  var cloudRaw = (1 - frac) * (d0.cloudCover || 0) + frac * (d1.cloudCover || 0);
+                  cloudCoverView[j] = Math.min(10, Math.round(cloudRaw * 10));
+
+                  var precipIdx = frac < 0.5 ? h0 : h1;
+                  precipTypeView[j] = returnPrecipType(hourlyData[precipIdx].precipType);
+                  var precipProbRaw = (1 - frac) * (hourlyData[h0].precipProbability || 0) + frac * (hourlyData[h1].precipProbability || 0);
+                  precipProbabilityView[j] = Math.round(temp * (precipProbRaw * 10));
+
+                  humidityView[j] = Math.round(((1 - frac) * (hourlyData[h0].humidity || 0) + frac * (hourlyData[h1].humidity || 0)) * 100);
+                  pressureView[j] = Math.round(((1 - frac) * (hourlyData[h0].pressure || 0) + frac * (hourlyData[h1].pressure || 0)) * 0.1);
+
+                  var windRaw = (1 - frac) * (hourlyData[h0].windGust || 0) + frac * (hourlyData[h1].windGust || 0);
+                  var windSpeed = Math.round(windRaw / 10);
+                  if (windSpeed > 4) windSpeed = 4;
+                  windSpeed = windSpeed * 2;
+                  windSpeedView[j] = (j % 2 ? 9 - windSpeed : 9 + windSpeed);
                 }
+
+                // Day markers: boundaries at hours 24, 48, ..., (D-1)*24 → pixel positions
+                for (var k = 0; k < D - 1; k++) {
+                  var boundaryHour = (k + 1) * 24;
+                  dayMarkerView[k] = Math.min(143, Math.round((boundaryHour / totalHours) * 144));
+                }
+                for (var k = D - 1; k < 6; k++) dayMarkerView[k] = 0;
 
                 //helper function to change precip type from string to int
                 function returnPrecipType(type){
@@ -293,18 +352,27 @@ function getWeather(){
                   "DailyLows": Array.from(dailyLowsView),
                   "DayMarkers": Array.from(dayMarkerView),
                   "DaysOfTheWeek": Array.from(dayOfTheWeekView),
-                  "CurrentTemperature": currently.toString() + "°"
+                  "CurrentTemperature": currently.toString() + "°",
+                  "HorizonDays": D
                 }
 
-                console.log(JSON.stringify(message))
+                console.log("[pkjs] getWeather: 200 OK, current=" + message.CurrentTemperature);
 
                 Pebble.sendAppMessage(message, function(success){
+                  if (success) {
+                    console.log("[pkjs] sendAppMessage success");
+                  } else {
+                    console.log("[pkjs] sendAppMessage failed");
+                  }
                   localStorage.setItem("lastUpdate", new Date().getTime());
                   lastUpdate = new Date().getTime();
                 });
+            } else {
+                console.log("[pkjs] getWeather: HTTP " + req.status);
             }
         }
-    }
+    };
+    req.onerror = function() { console.log("[pkjs] getWeather: network error"); };
     req.send();
 }
 

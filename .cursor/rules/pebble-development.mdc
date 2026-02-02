@@ -1,0 +1,40 @@
+---
+description: Pebble C API patterns, memory, platform, UI, and AppMessage conventions
+globs: "**/*.c, **/*.h"
+alwaysApply: false
+---
+
+# Pebble Development Rules
+
+- **C API lifecycle**: Every `_create` must have a matching `_destroy` in `deinit`. Pair creation with teardown so nothing leaks.
+
+  ```c
+  // In init: s_layer = layer_create(...);
+  // In deinit: layer_destroy(s_layer);
+  ```
+
+- **Memory**: Prefer stack allocation for small structs and buffers. Use the heap only for large Layers, Windows, or long-lived objects.
+
+- **Platform awareness**: If the platform is **obelix**, it supports 64-bit integers and has a higher resolution (200×228). Branch or size logic when needed.
+
+- **Window Stack**: Use the Window Stack pattern. Do **not** call `window_stack_push` more than once for the same window.
+
+- **Graphics**: On modern color platforms (Basalt, Emery, Obelix), call `graphics_context_set_antialiased(ctx, true)` when drawing.
+
+- **AppMessage**: Keep dictionary payloads small (buffer size &lt; 512 bytes) unless you explicitly need more, to avoid memory crashes.
+
+- **Forward declarations**: The Pebble SDK build treats warnings as errors. If a **static** function is called before its definition (e.g. from a handler that appears earlier in the file), the compiler will emit "implicit declaration" and "conflicting types" errors. Declare the function before first use:
+
+  ```c
+  static void my_helper(void);  /* forward declaration */
+
+  static void some_handler(...) {
+    my_helper();  /* called before definition */
+  }
+
+  static void my_helper(void) { ... }  /* definition */
+  ```
+
+  Place forward declarations near the top of the file (after static data, before the first function that calls them).
+
+- **Documentation**: For unclear function signatures or behavior, refer to @Pebble @Rebble or @PebbleOS

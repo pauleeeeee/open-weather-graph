@@ -31,27 +31,25 @@
                 ]
             },
             {
-            "type": "radiogroup",
-            "messageKey": "APIchoice",
-            "label": "Choose Weather API",
-            "defaultValue": "DarkSky",
-            "description": "you must independently obtain an API key from DarkSky or Pirate Weather",
-            "options": [
-                        { 
-                        "label": "DarkSky", 
-                        "value": "DarkSky" 
-                        },
-                        { 
-                        "label": "Pirate Weather", 
-                        "value": "Pirate Weather" 
-                        }
-                    ]
-            },
-            {
                 "type":"input",
                 "messageKey":"APIkey",
-                "label":"API Key",
-                "description":"enter the appropriate developer API key"
+                "label":"Pirate Weather API Key",
+                "description": "Get a free API key from pirate-weather.apiable.io"
+            },
+            {
+                "type": "select",
+                "messageKey": "HorizonDays",
+                "label": "Time horizon (days)",
+                "defaultValue": "6",
+                "description": "How many days of weather to show (1–6). Graph scales to fill the screen.",
+                "options": [
+                    { "label": "1 day", "value": "1" },
+                    { "label": "2 days", "value": "2" },
+                    { "label": "3 days", "value": "3" },
+                    { "label": "4 days", "value": "4" },
+                    { "label": "5 days", "value": "5" },
+                    { "label": "6 days", "value": "6" }
+                ]
             }
         ]
     },

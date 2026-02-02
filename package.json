@@ -6,6 +6,10 @@
     "pebble-app"
   ],
   "private": true,
+  "scripts": {
+    "inject-api-key": "node scripts/inject-api-key.js",
+    "postinstall": "node scripts/inject-api-key.js && node scripts/patch-clay.js"
+  },
   "dependencies": {
     "message-queue-pebble": "^1.0.0",
     "pebble-battery-bar": "^1.0.10",
@@ -45,7 +49,8 @@
       "DayMarkers": 112,
       "DaysOfTheWeek": 113,
       "CurrentTemperature": 114,
-      "GetWeather": 115
+      "GetWeather": 115,
+      "HorizonDays": 116
     },
     "resources": {
       "media": [

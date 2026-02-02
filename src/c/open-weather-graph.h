@@ -16,3 +16,4 @@
 #define DaysOfTheWeek 113
 #define CurrentTemperature 114
 #define GetWeather 115
+#define HorizonDays 116

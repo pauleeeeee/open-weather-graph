@@ -26,16 +26,29 @@ static uint8_t s_graph_wind_speed[144];
 
 static int8_t s_daily_highs[7];
 static int8_t s_daily_lows[7];
-static char s_daily_text_highs[7][4];
-static char s_daily_text_lows[7][4];
-static char s_daily_text_highs_and_lows[7][20];
+/* One combined label string per day (day letter + high + low); 6 labels for days 0..5 */
+static char s_daily_text_highs_and_lows[6][20];
 static char s_today_high_and_low_text[16];
-static char s_today_high[4];
 static char s_today_low[4];
 static int s_current_temperature;
 static char s_current_temperature_text[24];
 static uint8_t s_day_markers[6];
+static uint8_t s_horizon_days;
+#define WEATHER_PLACEHOLDER " "
+#define WEATHER_AWAITING_STR "Awaiting data"
+
+static bool has_weather_data(void) {
+  return s_current_temperature_text[0] != '\0' &&
+         s_current_temperature_text[0] != ' ' &&
+         strstr(s_current_temperature_text, "\xc2\xb0") != NULL;  /* UTF-8 degree symbol */
+}
 static uint8_t s_days_of_the_week[7];
+
+static void create_day_label_layers(void);
+static void update_day_label_positions(void);
+static void update_day_label_text(void);
+static void update_today_high_low_layer(void);
+static void update_day_label_visibility(void);
 
 static void update_time() {
   // Get a tm structure
@@ -72,20 +85,26 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
 }
 
-// static void hour_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-//   int fetch = 1;
-//   DictionaryIterator *iter;
-//   app_message_outbox_begin(&iter);
-//   dict_write_int(iter, GetWeather, &fetch, sizeof(int), false);
-//   app_message_outbox_send();
-// }
+static void request_weather_callback(void *data) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "GetWeather: outbox_begin failed");
+    return;
+  }
+  int fetch = 1;
+  dict_write_int(iter, GetWeather, &fetch, sizeof(int), false);
+  app_message_outbox_send();
+  APP_LOG(APP_LOG_LEVEL_INFO, "GetWeather request sent to phone");
+}
 
 static void in_received_handler(DictionaryIterator *iter, void *context) {
+  bool got_weather = false;
 
   Tuple *graph_temperature_tuple = dict_find (iter, GraphTemperature);
   if (graph_temperature_tuple) {
       memcpy(s_graph_temperature, graph_temperature_tuple->value->data, 144);
       persist_write_data(GraphTemperature, s_graph_temperature, 144);
+      got_weather = true;
   }
 
   Tuple *graph_precip_type_tuple = dict_find (iter, GraphPrecipType);
@@ -139,17 +158,36 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
 
   Tuple *current_temperature_tuple = dict_find (iter, CurrentTemperature);
   if (current_temperature_tuple) {
-    // s_current_temperature = current_temperature_tuple->value->int32;
-    // snprintf(s_current_temperature_text, sizeof(s_current_temperature_text), "%d", s_current_temperature);
     strncpy(s_current_temperature_text, current_temperature_tuple->value->cstring, sizeof(s_current_temperature_text));
+    s_current_temperature_text[sizeof(s_current_temperature_text) - 1] = '\0';
     text_layer_set_text(s_current_temperature_layer, s_current_temperature_text);
     persist_write_string(CurrentTemperature, s_current_temperature_text);
   }
 
+  Tuple *horizon_days_tuple = dict_find(iter, HorizonDays);
+  if (horizon_days_tuple) {
+    int32_t v = horizon_days_tuple->value->int32;
+    if (v < 1) v = 1;
+    if (v > 6) v = 6;
+    s_horizon_days = (uint8_t)v;
+    persist_write_data(HorizonDays, &s_horizon_days, 1);
+  }
+
+    if (got_weather) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "Weather data received: temp[0]=%d temp[72]=%d day_markers[0]=%d current=%s",
+        (int)s_graph_temperature[0], (int)s_graph_temperature[72],
+        (int)s_day_markers[0], s_current_temperature_text);
+    create_day_label_layers();   /* create day labels if not yet created (e.g. first fetch) */
+    update_day_label_text();     /* refresh highs/lows/day when data changes */
+    update_day_label_positions(); /* recenter labels when day_markers or horizon change */
+    update_day_label_visibility();
+    update_today_high_low_layer();
+    layer_mark_dirty(s_weather_window_layer);
+  }
 }
 
-static void in_dropped_handler(AppMessageResult reason, void *context){
-  //handle failed message
+static void in_dropped_handler(AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_WARNING, "AppMessage dropped: reason=%d", (int)reason);
 }
 
 static char *getDayString(int day){
@@ -173,15 +211,121 @@ static char *getDayString(int day){
   }
 }
 
+#define DAY_LABEL_WIDTH 24
+#define DAY_LABEL_HEIGHT 60
+#define DAY_LABEL_TOP (118 - 28)
+#define GRAPH_WIDTH 144
+
+/** Position day label layers so each is centered in the middle of its day segment.
+ * Day segments: day 0 = 0 to s_day_markers[0], day i = s_day_markers[i-1] to s_day_markers[i], last = s_day_markers[horizon-2] to GRAPH_WIDTH.
+ * Center = midpoint of segment; origin = center - half label width. */
+static void update_day_label_positions(void) {
+  for (int i = 0; i < 6; i++) {
+    if (s_days_of_the_week_text_layers[i] == NULL) continue;
+    if (i >= (int)s_horizon_days) continue;
+    int center_x;
+    if (i == 0) {
+      center_x = s_day_markers[0] / 2;
+    } else if (i < (int)s_horizon_days - 1) {
+      center_x = (s_day_markers[i - 1] + s_day_markers[i]) / 2;
+    } else {
+      center_x = (s_day_markers[s_horizon_days - 2] + GRAPH_WIDTH) / 2;
+    }
+    int origin_x = center_x - DAY_LABEL_WIDTH / 2;
+    if (origin_x < 0) origin_x = 0;
+    if (origin_x > GRAPH_WIDTH - DAY_LABEL_WIDTH) origin_x = GRAPH_WIDTH - DAY_LABEL_WIDTH;
+    layer_set_frame(text_layer_get_layer(s_days_of_the_week_text_layers[i]),
+        GRect(origin_x, DAY_LABEL_TOP, DAY_LABEL_WIDTH, DAY_LABEL_HEIGHT));
+  }
+}
+
+/** Create and add day label text layers when we have day_markers. Safe to call multiple times; only creates if layers don't exist yet. */
+static void create_day_label_layers(void) {
+  if (s_day_markers[0] == 0) return;
+  if (s_days_of_the_week_text_layers[0] != NULL) return;  /* already created */
+
+  for (int i = 0; i < 6; i++) {
+    s_days_of_the_week_text_layers[i] = text_layer_create(GRect(0, DAY_LABEL_TOP, DAY_LABEL_WIDTH, DAY_LABEL_HEIGHT));
+    text_layer_set_background_color(s_days_of_the_week_text_layers[i], GColorClear);
+    text_layer_set_text_color(s_days_of_the_week_text_layers[i], GColorWhite);
+    text_layer_set_font(s_days_of_the_week_text_layers[i], s_tiny_font);
+    text_layer_set_text_alignment(s_days_of_the_week_text_layers[i], GTextAlignmentCenter);
+
+    snprintf(s_daily_text_highs_and_lows[i], sizeof(s_daily_text_highs_and_lows[i]), "%s\n%d\n%d",
+        getDayString(s_days_of_the_week[i]), s_daily_highs[i], s_daily_lows[i]);
+
+    text_layer_set_text(s_days_of_the_week_text_layers[i], s_daily_text_highs_and_lows[i]);
+    layer_add_child(s_weather_window_layer, text_layer_get_layer(s_days_of_the_week_text_layers[i]));
+  }
+  update_day_label_positions();
+  update_day_label_visibility();
+}
+
+/** Refresh day label text from current s_daily_highs/s_daily_lows/s_days_of_the_week. */
+static void update_day_label_text(void) {
+  for (int i = 0; i < 6; i++) {
+    if (s_days_of_the_week_text_layers[i] == NULL) continue;
+    snprintf(s_daily_text_highs_and_lows[i], sizeof(s_daily_text_highs_and_lows[i]), "%s\n%d\n%d",
+        getDayString(s_days_of_the_week[i]), s_daily_highs[i], s_daily_lows[i]);
+    text_layer_set_text(s_days_of_the_week_text_layers[i], s_daily_text_highs_and_lows[i]);
+  }
+}
+
+/** Set day label layers visible for days 0..(horizon-1), i.e. all horizon_days labels. */
+static void update_day_label_visibility(void) {
+  for (int i = 0; i < 6; i++) {
+    if (s_days_of_the_week_text_layers[i] != NULL) {
+      layer_set_hidden(text_layer_get_layer(s_days_of_the_week_text_layers[i]), (i >= (int)s_horizon_days));
+    }
+  }
+}
+
+/** Update today high/low text layer from current s_daily_highs/s_daily_lows. */
+static void update_today_high_low_layer(void) {
+  if (!has_weather_data()) {
+    text_layer_set_text(s_today_high_and_low_layer, "--/--");
+    return;
+  }
+  snprintf(s_today_high_and_low_text, sizeof(s_today_high_and_low_text), "%d", s_daily_highs[0]);
+  strcat(s_today_high_and_low_text, "°");
+  strcat(s_today_high_and_low_text, "/");
+  snprintf(s_today_low, sizeof(s_today_low), "%d", s_daily_lows[0]);
+  strcat(s_today_high_and_low_text, s_today_low);
+  strcat(s_today_high_and_low_text, "°");
+  text_layer_set_text(s_today_high_and_low_layer, s_today_high_and_low_text);
+}
+
 static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
+  static bool s_logged_data_state = false;
 
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "weather window height %d", bounds.size.h);
+#if defined(PBL_COLOR)
+  graphics_context_set_antialiased(ctx, true);
+#endif
 
   int graphOffset = 30;
+  GRect graph_rect = GRect(bounds.origin.x, graphOffset + 10, bounds.size.w, 55);
+
+  /* When there is no weather data on the watch (first launch before first fetch),
+   * skip the gradient and graph and draw a simple dark placeholder instead.
+   * This avoids showing a big dithered square and flat lines. */
+  if (!persist_exists(GraphTemperature)) {
+    graphics_context_set_fill_color(ctx, GColorDarkGray);
+    graphics_fill_rect(ctx, graph_rect, 0, GCornerNone);
+    return;
+  }
+
+  /* Log once whether we have graph data (so we see if wavy line should appear) */
+  if (!s_logged_data_state) {
+    int t0 = (int)s_graph_temperature[0], t72 = (int)s_graph_temperature[72];
+    APP_LOG(APP_LOG_LEVEL_INFO, "Graph draw: bounds.h=%d temp[0]=%d temp[72]=%d day_markers[0]=%d",
+        bounds.size.h, t0, t72, (int)s_day_markers[0]);
+    s_logged_data_state = true;
+  }
+
   int pixelOffset = 0;
 
-  draw_gradient_rect(ctx, GRect(bounds.origin.x, graphOffset+10, bounds.size.w, 55), GColorWhite, GColorBlack, TOP_TO_BOTTOM);
+  draw_gradient_rect(ctx, graph_rect, GColorWhite, GColorBlack, TOP_TO_BOTTOM);
   // draw_dithered_rect(ctx, GRect(bounds.origin.x, 30, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_90_PERCENT);
   // draw_dithered_rect(ctx, GRect(bounds.origin.x, 35, bounds.size.w, 10), GColorBlack, GColorWhite, DITHER_80_PERCENT);
   // draw_dithered_rect(ctx, GRect(bounds.origin.x, 45, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_70_PERCENT);
@@ -216,26 +360,32 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
           graphics_draw_pixel(ctx, GPoint(i,ii+graphOffset+pixelOffset));
         }
       } else if (s_graph_precip_type[i] == 2) {
-        for (int ii = 0; ii < s_graph_temperature[i]; ii++){
-          if(ii % 4 == 0){
+        /* Snow: only fill the precip bar (precip_probability → temperature), not 0 → temperature,
+         * so we don't overwrite the gradient above the bar. No black vertical line here—it
+         * was drawing black over the gradient below the snow and wiping the dithering. */
+        int top = (int)s_graph_precip_probability[i];
+        int bottom = (int)s_graph_temperature[i];
+        if (top < bottom) {
+          for (int ii = top; ii < bottom; ii++) {
+            if ((ii - top) % 4 == 0) {
               graphics_context_set_stroke_color(ctx, GColorWhite);
-              graphics_draw_pixel(ctx, GPoint(i,ii+graphOffset+pixelOffset-1));
-              graphics_draw_pixel(ctx, GPoint(i,ii+graphOffset+pixelOffset));
-          } else {
-            graphics_context_set_stroke_color(ctx, GColorBlack);
-            graphics_draw_pixel(ctx, GPoint(i,ii+graphOffset+pixelOffset));
+              graphics_draw_pixel(ctx, GPoint(i, ii + graphOffset + pixelOffset - 1));
+              graphics_draw_pixel(ctx, GPoint(i, ii + graphOffset + pixelOffset));
+            } else {
+              graphics_context_set_stroke_color(ctx, GColorBlack);
+              graphics_draw_pixel(ctx, GPoint(i, ii + graphOffset + pixelOffset));
+            }
           }
         }
-        graphics_context_set_stroke_color(ctx, GColorBlack);
-        //float prob = s_graph_precip_probability[i] / 10;
-        //int pos = round(s_graph_temperature[i] * prob);
-        graphics_draw_line(ctx, GPoint(i, graphOffset + s_graph_precip_probability[i]), GPoint(i, graphOffset + s_graph_temperature[i]));
       }
 
-      //temp line black padding from precip type
-      graphics_context_set_stroke_color(ctx, GColorBlack);
-      graphics_draw_line(ctx, GPoint(i, graphOffset + s_graph_temperature[i]), GPoint(i, graphOffset + s_graph_temperature[i] - 4));
-      graphics_draw_line(ctx, GPoint(i, graphOffset + s_graph_temperature[i]), GPoint(i, graphOffset + s_graph_temperature[i] - 4));
+      /* Black padding between precip and temp line: only draw when precip does not extend into
+       * the 4px zone above the temp line, so we don't blacken the gradient. */
+      if (s_graph_precip_type[i] == 0 ||
+          s_graph_precip_probability[i] >= (int)s_graph_temperature[i] - 4) {
+        graphics_context_set_stroke_color(ctx, GColorBlack);
+        graphics_draw_line(ctx, GPoint(i, graphOffset + s_graph_temperature[i]), GPoint(i, graphOffset + s_graph_temperature[i] - 4));
+      }
       // graphics_context_set_stroke_color(ctx, GColorBlack);
       // graphics_context_set_stroke_width(ctx, 3);
       // graphics_draw_line(ctx, GPoint(i-2, s_graph_temperature[i]+graphOffset-4), GPoint(i+2, s_graph_temperature[i]+graphOffset-4));
@@ -271,10 +421,12 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
   // static char low[8];
 
 
-  //draw day markers, day of the week, and daily highs / lows
-  if (s_day_markers[0] > 0) {
-    for (int i = 0; i < 6; i++) {
-      graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset+5), GPoint(s_day_markers[i], 124-graphOffset));      
+  /* Draw day separator lines at each boundary (pixel positions from JS).
+   * Boundaries: s_day_markers[0]=24h, [1]=48h, ... [horizon_days-2]=(horizon_days-1)*24h.
+   * Draw all horizon_days-1 separators so the first one always renders when horizon_days > 1. */
+  if (s_horizon_days > 1) {
+    for (int i = 0; i < 6 && i < (int)s_horizon_days - 1; i++) {
+      graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset+5), GPoint(s_day_markers[i], 124-graphOffset));
     }
   }
 
@@ -318,8 +470,20 @@ static void main_window_load(Window *window) {
   if(persist_exists(CurrentTemperature)){
     persist_read_string(CurrentTemperature, s_current_temperature_text, sizeof(s_current_temperature_text));
   } else {
-    strncpy(s_current_temperature_text, " ", sizeof(s_current_temperature_text));
+    s_current_temperature_text[0] = ' ';
+    s_current_temperature_text[1] = '\0';
   }
+  if (persist_exists(HorizonDays)) {
+    persist_read_data(HorizonDays, &s_horizon_days, 1);
+    if (s_horizon_days < 1 || s_horizon_days > 6) s_horizon_days = 6;
+  } else {
+    s_horizon_days = 6;
+  }
+
+  APP_LOG(APP_LOG_LEVEL_INFO, "Window load: persist temp=%d persist_day_markers=%d has_weather=%d",
+      persist_exists(GraphTemperature) ? (int)s_graph_temperature[0] : -1,
+      persist_exists(DayMarkers) ? (int)s_day_markers[0] : -1,
+      has_weather_data() ? 1 : 0);
 
   //declare fonts
   s_big_font = fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT);
@@ -369,10 +533,11 @@ static void main_window_load(Window *window) {
   text_layer_set_text_alignment(s_full_date_layer, GTextAlignmentRight);
   layer_add_child(window_layer, text_layer_get_layer(s_full_date_layer));
 
-  //create current temperature
+  //create current temperature (show "Awaiting data" when no weather yet)
   s_current_temperature_layer = text_layer_create(GRect(0, 12, bounds.size.w/3, 48));
   text_layer_set_background_color(s_current_temperature_layer, GColorClear);
-  text_layer_set_text(s_current_temperature_layer, s_current_temperature_text);
+  text_layer_set_text(s_current_temperature_layer,
+      has_weather_data() ? s_current_temperature_text : WEATHER_AWAITING_STR);
   text_layer_set_text_color(s_current_temperature_layer, GColorWhite);
   text_layer_set_font(s_current_temperature_layer, s_current_temperature_font);
   text_layer_set_text_alignment(s_current_temperature_layer, GTextAlignmentCenter);
@@ -385,14 +550,17 @@ static void main_window_load(Window *window) {
   text_layer_set_text_color(s_today_high_and_low_layer, GColorWhite);
   text_layer_set_font(s_today_high_and_low_layer, s_small_font);
   text_layer_set_text_alignment(s_today_high_and_low_layer, GTextAlignmentCenter);
-  snprintf( s_today_high_and_low_text, sizeof(s_today_high_and_low_text), "%d", s_daily_highs[0] );
-  snprintf( s_today_low, sizeof(s_today_low), "%d", s_daily_lows[0] );
-  strcat(s_today_high_and_low_text, "°");
-  strcat(s_today_high_and_low_text, "/");
-  strcat(s_today_high_and_low_text, s_today_low);
-  strcat(s_today_high_and_low_text, "°");
-  text_layer_set_text(s_today_high_and_low_layer, s_today_high_and_low_text);
-
+  if (has_weather_data()) {
+    snprintf(s_today_high_and_low_text, sizeof(s_today_high_and_low_text), "%d", s_daily_highs[0]);
+    strcat(s_today_high_and_low_text, "°");
+    strcat(s_today_high_and_low_text, "/");
+    snprintf(s_today_low, sizeof(s_today_low), "%d", s_daily_lows[0]);
+    strcat(s_today_high_and_low_text, s_today_low);
+    strcat(s_today_high_and_low_text, "°");
+    text_layer_set_text(s_today_high_and_low_layer, s_today_high_and_low_text);
+  } else {
+    text_layer_set_text(s_today_high_and_low_layer, "--/--");
+  }
   layer_add_child(window_layer, text_layer_get_layer(s_today_high_and_low_layer));
 
   // create weather layer
@@ -401,32 +569,9 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(s_weather_window_layer, s_weather_window_layer_update_proc);
   layer_add_child(window_layer, s_weather_window_layer);
 
-  if (s_day_markers[0] > 0) {
-    for (int i = 0; i < 6; i++) {
-
-      s_days_of_the_week_text_layers[i] = text_layer_create(GRect(s_day_markers[i], 118-28, 24, 60));
-      text_layer_set_background_color(s_days_of_the_week_text_layers[i], GColorClear);
-      text_layer_set_text_color(s_days_of_the_week_text_layers[i], GColorWhite);
-      text_layer_set_font(s_days_of_the_week_text_layers[i], s_tiny_font);
-      text_layer_set_text_alignment(s_days_of_the_week_text_layers[i], GTextAlignmentCenter);
-
-      //convert ints to strings
-      snprintf( s_daily_text_highs[i], sizeof(s_daily_text_highs[i]), "%d", s_daily_highs[i] );
-      snprintf( s_daily_text_lows[i], sizeof(s_daily_text_lows[i]), "%d", s_daily_lows[i] );
-      
-      //concatenate the day string, highs, and lows,
-      strncpy(s_daily_text_highs_and_lows[i], getDayString(s_days_of_the_week[i]), sizeof(s_daily_text_highs_and_lows[i]));
-      strcat(s_daily_text_highs_and_lows[i], "\n");
-      strcat(s_daily_text_highs_and_lows[i], s_daily_text_highs[i]);
-      strcat(s_daily_text_highs_and_lows[i], "\n");
-      strcat(s_daily_text_highs_and_lows[i], s_daily_text_lows[i]);
-
-      //plus one on the i to shift one day forward   
-      text_layer_set_text(s_days_of_the_week_text_layers[i], s_daily_text_highs_and_lows[i + 1]);
-      layer_add_child(s_weather_window_layer, text_layer_get_layer(s_days_of_the_week_text_layers[i]));
-      
-    }
-  }
+  create_day_label_layers();  /* create day labels if we have persisted data */
+  update_day_label_positions();
+  update_day_label_visibility();
 
   window_set_background_color(window, GColorBlack);
 
@@ -434,11 +579,20 @@ static void main_window_load(Window *window) {
 }
 
 static void main_window_unload(Window *window) {
+  moon_layer_destroy(moon_layer);
   battery_bar_layer_destroy(s_battery_layer);
   bluetooth_layer_destroy(s_bluetooth_layer);
-  layer_destroy(s_weather_window_layer);
   text_layer_destroy(s_time_layer);
   text_layer_destroy(s_full_date_layer);
+  text_layer_destroy(s_current_temperature_layer);
+  text_layer_destroy(s_today_high_and_low_layer);
+  for (int i = 0; i < 6; i++) {
+    if (s_days_of_the_week_text_layers[i] != NULL) {
+      text_layer_destroy(s_days_of_the_week_text_layers[i]);
+      s_days_of_the_week_text_layers[i] = NULL;
+    }
+  }
+  layer_destroy(s_weather_window_layer);
 }
 
 static void init() {
@@ -457,6 +611,12 @@ static void init() {
 
   app_message_open(1024, 128);
 
+  (void)s_graph_humidity;
+  (void)s_graph_pressure;
+  (void)s_current_temperature;
+
+  // Request weather from phone on startup (short delay so connection is ready)
+  app_timer_register(400, request_weather_callback, NULL);
 
   // Show the Window on the watch, with animated=true
   window_stack_push(s_main_window, true);
