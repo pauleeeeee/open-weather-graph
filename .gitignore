@@ -5,5 +5,6 @@ node_modules/
 .lock-waf_linux2_build
 _examples
 
-# Dev-only: injected API key (do not commit)
+# Dev-only: API key (do not commit)
+api-key.txt
 src/pkjs/api-key-injected.js

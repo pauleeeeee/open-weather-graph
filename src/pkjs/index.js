@@ -85,7 +85,7 @@ var geoLocationOptions = {
 function geoLocationSuccess(pos) {
     location[0] = pos.coords.latitude;
     location[1] = pos.coords.longitude;
-    console.log("[pkjs] geo success " + location[0] + "," + location[1] + ", fetching weather");
+    console.log("[pkjs] user coordinates: latitude " + location[0] + ", longitude " + location[1]);
     getWeather();
 }
 
@@ -129,7 +129,7 @@ function getWeather(){
             if(req.status == 200) {
 
                 var response = JSON.parse(req.responseText);
-                console.log(JSON.stringify(response));
+                // console.log(JSON.stringify(response));
 
                 // Horizon: 1–6 days from config, default 6
                 var D = 6;
@@ -265,6 +265,7 @@ function getWeather(){
                   var precipIdx = frac < 0.5 ? h0 : h1;
                   precipTypeView[j] = returnPrecipType(hourlyData[precipIdx].precipType);
                   var precipProbRaw = (1 - frac) * (hourlyData[h0].precipProbability || 0) + frac * (hourlyData[h1].precipProbability || 0);
+                  logPrecipProbability(j, precipProbRaw, precipTypeView[j]);
                   precipProbabilityView[j] = Math.round(temp * (precipProbRaw * 10));
 
                   humidityView[j] = Math.round(((1 - frac) * (hourlyData[h0].humidity || 0) + frac * (hourlyData[h1].humidity || 0)) * 100);
@@ -357,6 +358,7 @@ function getWeather(){
                 }
 
                 console.log("[pkjs] getWeather: 200 OK, current=" + message.CurrentTemperature);
+                console.log(JSON.stringify(message));
 
                 Pebble.sendAppMessage(message, function(success){
                   if (success) {

@@ -310,7 +310,7 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
    * skip the gradient and graph and draw a simple dark placeholder instead.
    * This avoids showing a big dithered square and flat lines. */
   if (!persist_exists(GraphTemperature)) {
-    graphics_context_set_fill_color(ctx, GColorDarkGray);
+    graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_fill_rect(ctx, graph_rect, 0, GCornerNone);
     return;
   }
@@ -323,79 +323,23 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
     s_logged_data_state = true;
   }
 
-  int pixelOffset = 0;
-
   draw_gradient_rect(ctx, graph_rect, GColorWhite, GColorBlack, TOP_TO_BOTTOM);
-  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 30, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_90_PERCENT);
-  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 35, bounds.size.w, 10), GColorBlack, GColorWhite, DITHER_80_PERCENT);
-  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 45, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_70_PERCENT);
-  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 58, bounds.size.w, 13), GColorBlack, GColorWhite, DITHER_40_PERCENT);
-  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 71, bounds.size.w, 9), GColorBlack, GColorWhite, DITHER_25_PERCENT);
-  // draw_dithered_rect(ctx, GRect(bounds.origin.x, 80, bounds.size.w, 5), GColorBlack, GColorWhite, DITHER_10_PERCENT);
+
+  /* Fill the band above the temp curve with black so the gradient doesn't show as gray. */
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  for (int i = 0; i < 144; i++) {
+    int h = (int)s_graph_temperature[i];
+    if (h > 0) {
+      graphics_fill_rect(ctx, GRect(i, graphOffset, 1, h), 0, GCornerNone);
+    }
+  }
 
   graphics_context_set_stroke_width(ctx, 1);
 
-
-
   for (int i = 0; i < 144; i++){
-
-    if (i%2 == 0) {
-      pixelOffset = 0;
-    } else {
-      pixelOffset = 2;
-    }
-
     if (i < 143){
-      //precip type
-      if(s_graph_precip_type[i] == 0) {
-        graphics_context_set_stroke_color(ctx, GColorBlack);
-        graphics_draw_line(ctx, GPoint(i,graphOffset), GPoint(i,graphOffset+s_graph_temperature[i]));
-      } else if (s_graph_precip_type[i] == 1) {
-        for (int ii = 0; ii < s_graph_temperature[i]; ii++){
-          if(ii % 4 == 0){
-            graphics_context_set_stroke_color(ctx, GColorWhite);
-          } else {
-            graphics_context_set_stroke_color(ctx, GColorBlack);
-          }
-          graphics_draw_pixel(ctx, GPoint(i,ii+graphOffset+pixelOffset));
-        }
-      } else if (s_graph_precip_type[i] == 2) {
-        /* Snow: only fill the precip bar (precip_probability → temperature), not 0 → temperature,
-         * so we don't overwrite the gradient above the bar. No black vertical line here—it
-         * was drawing black over the gradient below the snow and wiping the dithering. */
-        int top = (int)s_graph_precip_probability[i];
-        int bottom = (int)s_graph_temperature[i];
-        if (top < bottom) {
-          for (int ii = top; ii < bottom; ii++) {
-            if ((ii - top) % 4 == 0) {
-              graphics_context_set_stroke_color(ctx, GColorWhite);
-              graphics_draw_pixel(ctx, GPoint(i, ii + graphOffset + pixelOffset - 1));
-              graphics_draw_pixel(ctx, GPoint(i, ii + graphOffset + pixelOffset));
-            } else {
-              graphics_context_set_stroke_color(ctx, GColorBlack);
-              graphics_draw_pixel(ctx, GPoint(i, ii + graphOffset + pixelOffset));
-            }
-          }
-        }
-      }
-
-      /* Black padding between precip and temp line: only draw when precip does not extend into
-       * the 4px zone above the temp line, so we don't blacken the gradient. */
-      if (s_graph_precip_type[i] == 0 ||
-          s_graph_precip_probability[i] >= (int)s_graph_temperature[i] - 4) {
-        graphics_context_set_stroke_color(ctx, GColorBlack);
-        graphics_draw_line(ctx, GPoint(i, graphOffset + s_graph_temperature[i]), GPoint(i, graphOffset + s_graph_temperature[i] - 4));
-      }
-      // graphics_context_set_stroke_color(ctx, GColorBlack);
-      // graphics_context_set_stroke_width(ctx, 3);
-      // graphics_draw_line(ctx, GPoint(i-2, s_graph_temperature[i]+graphOffset-4), GPoint(i+2, s_graph_temperature[i]+graphOffset-4));
-        
-      //draw wind speeed line  
-      //offset is 7
-      //7 is top 16 is 
       graphics_context_set_stroke_color(ctx, GColorWhite);
       graphics_draw_line(ctx, GPoint(i,s_graph_wind_speed[i]+4), GPoint(i+1,s_graph_wind_speed[i+1]+4));
-
     }
 
     if (s_graph_cloud_cover[i] > 0) {
@@ -403,9 +347,33 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
       graphics_context_set_stroke_width(ctx, 1);
       graphics_draw_line(ctx, GPoint(i, graphOffset), GPoint(i, graphOffset-s_graph_cloud_cover[i]));
     }
+  }
 
+  /* Precipitation: dotted vertical line from just below cloud to just above temp line.
+   * Rain = 2 px on, 2 off; snow = 1 on, 1 off; each column offset by its index. */
+  graphics_context_set_fill_color(ctx, GColorWhite);
+  for (int i = 0; i < 144; i++) {
+    if (s_graph_precip_probability[i] == 0 || s_graph_precip_type[i] == 0) continue;
 
+    int y_top = graphOffset + 1;   /* just below cloud bottom */
+    int y_bottom = (int)s_graph_temperature[i] + graphOffset - 1;  /* just above temp line */
+    if (y_bottom <= y_top) continue;
 
+    int period, on_len;
+    if (s_graph_precip_type[i] == 1) {
+      period = 4; on_len = 2;  /* rain: 2 on, 2 off */
+    } else {
+      period = 2; on_len = 1;  /* snow (or sleet): 1 on, 1 off */
+    }
+    int col_offset = i % period;
+
+    for (int y = y_top; y <= y_bottom; y++) {
+      int y_index = y - y_top;
+      int pattern_index = (col_offset + y_index) % period;
+      if (pattern_index < on_len) {
+        graphics_fill_rect(ctx, GRect(i, y, 1, 1), 0, GCornerNone);
+      }
+    }
   }
 
   //temp line gets its own loop to ensure prettiness
@@ -424,11 +392,11 @@ static void s_weather_window_layer_update_proc(Layer *layer, GContext *ctx) {
   /* Draw day separator lines at each boundary (pixel positions from JS).
    * Boundaries: s_day_markers[0]=24h, [1]=48h, ... [horizon_days-2]=(horizon_days-1)*24h.
    * Draw all horizon_days-1 separators so the first one always renders when horizon_days > 1. */
-  if (s_horizon_days > 1) {
-    for (int i = 0; i < 6 && i < (int)s_horizon_days - 1; i++) {
-      graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset+5), GPoint(s_day_markers[i], 124-graphOffset));
-    }
-  }
+  // if (s_horizon_days > 1) {
+  //   for (int i = 0; i < 6 && i < (int)s_horizon_days - 1; i++) {
+  //     graphics_draw_line(ctx, GPoint(s_day_markers[i], graphOffset+5), GPoint(s_day_markers[i], 124-graphOffset));
+  //   }
+  // }
 
 
 }
