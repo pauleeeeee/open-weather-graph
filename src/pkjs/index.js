@@ -6,11 +6,17 @@ const Clay = require('pebble-clay');
 const clayConfig = require('./config.json');
 const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
-// Optional: loaded from api-key-injected.js (from OPEN_WEATHER_GRAPH_API_KEY) for dev
+// Optional: loaded from api-key-injected.js (API key + optional fixed coordinates) for dev
 var DEV_API_KEY = '';
+var DEV_LAT = null;
+var DEV_LON = null;
 try {
   var injected = require('./api-key-injected.js');
   if (injected && injected.apiKey) DEV_API_KEY = injected.apiKey;
+  if (injected && injected.lat != null && injected.lon != null) {
+    DEV_LAT = injected.lat;
+    DEV_LON = injected.lon;
+  }
 } catch (e) {}
 
 var configuration = null;
@@ -54,6 +60,13 @@ function tryFetchWeather() {
     console.log("[pkjs] tryFetchWeather: cache fresh (" + Math.round((now - lastUpdate) / 60000) + " min ago), skip");
     return;
   }
+  if (DEV_LAT != null && DEV_LON != null) {
+    location[0] = DEV_LAT;
+    location[1] = DEV_LON;
+    console.log("[pkjs] user coordinates (injected): " + location[0] + ", " + location[1]);
+    getWeather();
+    return;
+  }
   console.log("[pkjs] tryFetchWeather: getting location...");
   navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
 }
@@ -67,12 +80,19 @@ Pebble.addEventListener("ready", function(e) {
 
 Pebble.addEventListener('appmessage', function(e) {
   var getWeather = e.payload["GetWeather"];
-  if (getWeather) {
+    if (getWeather) {
     configuration = JSON.parse(localStorage.getItem("configuration") || "null");
     if (!configuration && DEV_API_KEY) configuration = getConfiguration();
     console.log("[pkjs] GetWeather from watch, hasApiKey=" + hasApiKey());
     if (hasApiKey()) {
-      navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
+      if (DEV_LAT != null && DEV_LON != null) {
+        location[0] = DEV_LAT;
+        location[1] = DEV_LON;
+        console.log("[pkjs] user coordinates (injected): " + location[0] + ", " + location[1]);
+        getWeather();
+      } else {
+        navigator.geolocation.getCurrentPosition(geoLocationSuccess, geoLocationError, geoLocationOptions);
+      }
     }
   }
 });
@@ -124,6 +144,8 @@ function getWeather(){
     var apiURL = 'https://api.pirateweather.net/forecast/' + apiKey + '/' + location[0] + ',' + location[1] + '?exclude=minutely,alerts,flags&extend=hourly' + unitsParam;
     console.log("[pkjs] getWeather: request start");
     req.open('GET', apiURL, true);
+    req.timeout = 15000;
+    req.ontimeout = function() { console.log("[pkjs] getWeather: request timeout (emulator may block network; try a real device)"); };
     req.onload = function(e) {
         if (req.readyState == 4) {
             if(req.status == 200) {
@@ -374,7 +396,7 @@ function getWeather(){
             }
         }
     };
-    req.onerror = function() { console.log("[pkjs] getWeather: network error"); };
+    req.onerror = function() { console.log("[pkjs] getWeather: network error (check emulator network; try a real device)"); };
     req.send();
 }
 
